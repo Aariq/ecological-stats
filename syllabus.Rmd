@@ -1,0 +1,70 @@
+---
+title: 'Biology 133: Ecological Statistics and Data'
+subtitle: 'Spring 2020'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Instructor: Eric Scott
+Office hours: Wednesday 1:00--2:00, Robinson 350 (across from the Biology office)
+TA: Avalon Owens
+Office hours: **TBD**
+
+Lecture 3:00--4:15 Tuesday & Thursday, 226 Braker Hall
+Lab: 1:30--4:00 Monday, **room TBD**
+
+### Readings:
+- Bolker, B. 2008 *Ecological models and Data in R* (lecture)
+- Grolemund & Wickham 2017. *R for Data Science*. https://r4ds.had.co.nz/ (lab)
+- 
+
+### Overview:
+Emerging issues in health and environmental sciences require an understanding of how to make inferences and decisions in the face of limited data and uncertainty.  In the past few decades, advances in computational sciences have opened new ways of using and interpreting data.  These advances are fundamentally changing how biologists approach statistics.  This course introduces students to the principles of probability and likelihood that underpin these growing areas of statistical computing.  Examples come from ecological models and data, but reflect general principles of working with discrete data, maximum likelihood and Bayesian estimation techniques, and using fundamental principles of probability to build and interpret mixed and mixture models.  Work will be done using the open-source statistics program, R, and exercises will emphasize building skills by working with peers, and by trial-and-error, both of which are key features of the open-source computing community.
+
+### Important Dates:
+
+- Wednesday, Jan 22: First lab (a Tufts Monday)
+- Thursday, Feb 20: Tufts Monday (lab meets, lecture does not)
+- Thursday, Feb 27: Exam 1
+- Mar 16--19: Spring Break
+- Thursday, Apr 16: Exam 2
+- Wednesay, May 9: **Final exam 7:00--9:00 pm**
+
+### Grading:
+Grades will be based on attendance/participation, approximately weekly homework assignments, which will be given a qualitative score (exceeds expectations, meets expectations, needs improvement, unacceptable), participation in lab exercises, and three graded tests.  The basic calculation will be:
+
+- Attendance/participation --- 5%
+- Lab exercises --- 30%
+- Homework --- 25%
+- In-class tests --- 12.5% each (25% total)
+- Final exam --- 15%
+
+Late homework assignments will be lowered by one qualitative category, per week (rounded up) they are late.  Skills in data analysis and programming are cumulative, so it is especially important to stay on top of the assignments.  
+
+Homework should be printed out and turned in during class.  I do not accept electronic submission, including email attachments.  Homework questions should be answered in words or with calculations shown on the page. Unlike some Computer Science classes, I do not want you to turn in code.  In the lab, you will learn to use R Markdown which allows you to mix written answers, code, and output from code, which you may use for completing your homeworks if you like.
+
+### Lab
+There are four main **objectives** for the lab portion of the class:
+
+- Build/solidify programming skills in R
+- Learn tools and workflows for reproducible analyses
+- Review and revisit very basic statistical concepts (average/mean, variance, correlation, normal distribution), as needed
+- Review material from the class 
+
+A reading will be assigned for each lab from texts available online.  For each lab you should:
+
+- read the assigned reading **before class** and attempt to implement any code it contains
+- Prepare two short questions or comments about the readings and turn these in on Canvas **before the lab** begins, that is, by 1:30 pm on Monday.  These may be simple comments such as "I couldn't get X part of the code to work" or "what is a tibble?" or "what does 'regression' mean in this context?"
+- Spend the lab period completing exercises collaboratively with other students with help from your TA, Avalon Owens
+- Turn in final code **by the end of the lab period**, that is, by 4:00 pm on Monday
+
+Two of the lab sessions are reviews of previous exams.  In these sessions, you will work on these exams, and I will answer questions as needed.  All students will also have access to the exams online, and are welcome to attend these sessions, and ask questions during office hours.
+
+After each test, all students in the class will have the opportunity to re-do problems they missed.  Your final grade on each test will be the average of the original grade and the corrected grade.  I will NOT answer any questions about the test during the regrading period.  TA Matt Kamm will be available to provide some guidance, but the primary onus is on you to work through the problems using past notes.  Your opportunities to consult with Matt are (1) during his office hours, and (2) during two of the lab sessions (one after each test). 
+
+Lab grades will be based on the % of class periods attended, and assignments completed.  Although the assignments will not be given a letter grade, partly completed exercises with little evidence of effort may not count as complete.
+
+
