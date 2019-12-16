@@ -1,25 +1,27 @@
 ---
 title: 'Biology 133: Ecological Statistics and Data'
 subtitle: 'Spring 2020'
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Instructor: Eric Scott
-Office hours: Wednesday 1:00--2:00, Robinson 350 (across from the Biology office)
-TA: Avalon Owens
-Office hours: **TBD**
+Instructor: Eric Scott  
+Office hours: Wednesday 1:00--2:00, Robinson 350 (across from the Biology office)  
+TA: Avalon Owens  
+Office hours: **TBD**  
 
-Lecture 3:00--4:15 Tuesday & Thursday, 226 Braker Hall
-Lab: 1:30--4:00 Monday, **room TBD**
+Lecture 3:00--4:15 Tuesday & Thursday, 226 Braker Hall  
+Lab: 1:30--4:00 Monday, **room TBD**  
 
 ### Readings:
-- Bolker, B. 2008 *Ecological models and Data in R* (lecture)
+- Bolker, B. 2008 *Ecological models and Data in R*. https://ms.mcmaster.ca/~bolker/emdbook/ (lecture)
 - Grolemund & Wickham 2017. *R for Data Science*. https://r4ds.had.co.nz/ (lab)
-- 
+- Other online readings TBA
 
 ### Overview:
 Emerging issues in health and environmental sciences require an understanding of how to make inferences and decisions in the face of limited data and uncertainty.  In the past few decades, advances in computational sciences have opened new ways of using and interpreting data.  These advances are fundamentally changing how biologists approach statistics.  This course introduces students to the principles of probability and likelihood that underpin these growing areas of statistical computing.  Examples come from ecological models and data, but reflect general principles of working with discrete data, maximum likelihood and Bayesian estimation techniques, and using fundamental principles of probability to build and interpret mixed and mixture models.  Work will be done using the open-source statistics program, R, and exercises will emphasize building skills by working with peers, and by trial-and-error, both of which are key features of the open-source computing community.
@@ -31,6 +33,7 @@ Emerging issues in health and environmental sciences require an understanding of
 - Thursday, Feb 27: Exam 1
 - Mar 16--19: Spring Break
 - Thursday, Apr 16: Exam 2
+- Monday, Apr 20: Patriot's Day (no lab)
 - Wednesay, May 9: **Final exam 7:00--9:00 pm**
 
 ### Grading:
@@ -63,8 +66,8 @@ A reading will be assigned for each lab from texts available online.  For each l
 
 Two of the lab sessions are reviews of previous exams.  In these sessions, you will work on these exams, and I will answer questions as needed.  All students will also have access to the exams online, and are welcome to attend these sessions, and ask questions during office hours.
 
-After each test, all students in the class will have the opportunity to re-do problems they missed.  Your final grade on each test will be the average of the original grade and the corrected grade.  I will NOT answer any questions about the test during the regrading period.  TA Matt Kamm will be available to provide some guidance, but the primary onus is on you to work through the problems using past notes.  Your opportunities to consult with Matt are (1) during his office hours, and (2) during two of the lab sessions (one after each test). 
+After each test, all students in the class will have the opportunity to re-do problems they missed.  Your final grade on each test will be the average of the original grade and the corrected grade.  I will NOT answer any questions about the test during the regrading period.  TA Avalon Owens will be available to provide some guidance, but the primary onus is on you to work through the problems using past notes.
 
-Lab grades will be based on the % of class periods attended, and assignments completed.  Although the assignments will not be given a letter grade, partly completed exercises with little evidence of effort may not count as complete.
+Lab grades will be based on the percentage of class periods attended, and assignments completed.  Although the assignments will not be given a letter grade, partly completed exercises with little evidence of effort may not count as complete.
 
 

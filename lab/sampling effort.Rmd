@@ -1,0 +1,34 @@
+---
+title: "Sampling Effort"
+output: html_notebook
+---
+
+I asked Wei Ji Peng and Gabe to count leafhoppers keeping track of how many were on each leaf for ~200 leves at 5 different locations in field A.
+
+I will plot number of leaves (sampling effort) vs. estimated leafhopper density (insects per leaf) to hopefully determine the "best" number of leaves to count
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+```{r}
+sampling_raw <- read_csv(here("lab", "data", "sampling effort.csv"))
+sampling <-
+  sampling_raw %>% 
+  gather(key = "plant", value = "count") %>% 
+  group_by(plant) %>% 
+  mutate(leaf.no = row_number(plant), cum_count = cumsum(count)) %>% 
+  mutate(density = cum_count / leaf.no) 
+```
+
+```{r}
+ggplot(sampling, aes(x = leaf.no, y = density)) + 
+  geom_line(aes(color = plant)) + 
+  xlab("Sampling Effort (number of leaves assayed)") + 
+  ylab("Leafhopper Density Estimate (insects/leaf)") 
+#+ xlim(0,15) + ylim(0,1)
+
+#ggsave("Sampling Effort.png", height = 5, width = 7, units = "in")
+```
+

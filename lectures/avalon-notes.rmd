@@ -1,0 +1,802 @@
+---
+title: "stats & data notes"
+output: html_notebook
+---
+# modeling
+
+three kinds of variability:
+1. measurement error
+2. demographic stochasticity*
+3. environmental stochasticity*
+*process variability or error
+
+three kinds of statistical inference:
+1. classical frequentist
+2. maximum likelihood estimation
+3. Bayesian
+
+# lecture one
+
+## probability
+
+**event**: something that does or does not occur
+per **trial**: observation, specimen, “experiment”
+	
+**probability**:
+
+P(A): probability event A occurs
+n: total number of trials
+$n_A$: total number of trials in which A occurs
+P(A) = $\frac{n_A}{n}$, provided n is sufficiently large
+	
+$$P(A) = \lim_{x\to\infty} (\frac{n_A}{n})$$
+
+endangered orchids example:
+
+we found 5 plants this year
+and came back to look at them next year
+
+1. plant #1 is alive and has flowers and leaves
+2. plant #2 is alive but only has leaves
+3. plant #3 is alive but only has leaves
+4. plant #4 is alive but only has leaves
+5. plant #5 is dead!
+
+80% probability plant lives through one year
+20% probability plant (lives and) flowers each year
+25% probability plant flowers, if it lives (flowers|living)
+
+## sampling
+
+must be **representative** and **independent**
+  **random**: gold standard of statistics
+  **stratified**: different groups represented
+  **haphazard**: everything you see, *etc.*
+  
+# lecture two
+
+## probability (again)
+
+think of all possible events as circle, 
+probability of events are subsumed circles
+
+**OR**: $P(A+B)$
+**AND**: $P(A,B)$
+**conditional**:  $P(B|A) = P(A,B)/P(A)$
+**mutually exclusive**: $P(A,B) = 0; P(B|A) = 0$
+  **OR rule**: $P(A+B) = P(A) + P(B)$
+**independent**:  $P(B|A) = P(B); P(A|B) = P(A)$
+  **AND rule**:  $P(A,B) = P(A)*P(B)$
+   
+probabilities of individual outcomes using estimated parameters from above:
+1. plant #1 - $P(s)*P(f) = 0.8*0.25 = 0.2$
+2. plant #2 - $P(s)*(1-P(f)) = 0.8*0.75 = 0.6$
+3. plant #3 - $P(s)*(1-P(f)) = 0.8*0.75 = 0.6$
+4. plant #4 - $P(s)*(1-P(f)) = 0.8*0.75 = 0.6$
+5. plant #5 - $(1 - P(s)) = 0.2$
+
+& probability of overall outcome, using estimated and other parameters:
+H1: $P(s=0.8,f=0.25) = 0.2*0.6*0.6*0.6*0.2 = 0.00864$
+H2: $P(s=0.6,f=0.4) = 0.24*0.36*0.36*0.36*0.4 = 0.00448$
+H3: $P(s=0.8,f=0.25,n=10) = 0.2*0.2*0.6*0.6*0.6*0.6*0.6*0.6*0.2*0.2 = 0.00007465$
+H4: $P(s=0.6,f=0.4,n=10) = 0.24*0.24*0.36*0.36*0.36*0.36*0.36*0.36*0.4*0.4 = 0.00002006$
+
+probability of large dataset is smaller than probability of small dataset by nature
+
+## likelihood
+
+likelihood L of hypothesis H given data R is proportional to P(R|H), constant of proportionality k being arbitrary (but specific to particular dataset; Edwards 1972)
+
+$$
+L(H|R) = k*P(R|H)
+$$
+
+likelihood ratio is our primary method of comparing models:
+$L(P(s)=0.8,P(f)=0.25/R) = k*0.00864$
+$L(P(s)=0.6,P(f)=0.4/R) = k*0.00448$
+$L(H1)/L(H2) = k*0.00864/k*0.00448$ = 1.93 "times more likely"
+$L(H3)/L(H4) = k2*0.00007465/k2*0.00002006$ = 3.72 "times more likely"
+
+things to remember:
+
+1. likelihood decreases as sample size increases
+   constant of proportionality specific to particular dataset
+   AND SO ONLY COMPARE MODELS FIT TO SAME DATASET
+  
+2. likelihood ratio (relative support) increases as sample size increases
+   arbitrary parameters always worse than ones estimated from data 
+   (but sometimes not by that much)
+
+3. (log) likelihoods often taken from log-transformed probabilities
+   to avoid dealing with tiny numbers for typical (large) data sets
+   
+```{r}
+(p_H3 <- log(0.00007465))
+(p_H4 <- log(0.00002006))
+p_H3/p_H4
+```
+   
+```{r}
+plantguy <- data.frame(survival = c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9))
+plantguy$likelihood_05 <- plantguy$survival^4*(1-plantguy$survival)
+plantguy$likelihood_10 <- plantguy$survival^8*(1-plantguy$survival)^2
+
+plantguy <- plantguy %>% gather(population, likelihood, -survival)
+
+ggplot(plantguy, aes(x = survival, y = log(likelihood), color = population)) +
+  geom_line(size = 1.5) + xlim(0,1)
+```
+
+events can be independent and mutually exclusive ONLY if the probability of one is zero:
+**mutually exclusive**: $P(A,B) = 0$
+**independent**: $P(A,B) = P(A)*P(B)$
+ERGO: $P(A)*P(B) = 0$
+  
+#lecture three
+
+##log transformation
+
+1. exponential transformation undoes log transformation, and vice-versa
+
+```{r}
+A=5
+log(exp(A))
+exp(log(A))
+```
+
+2. log transformation converts × and % into + and -
+
+$ln(AB)=ln(A)+ln(B)$
+$ln(A/B)=ln(A)-ln(B)$
+$ln(A^C) = C*ln(A)$
+
+```{r}
+A=5
+B=5
+log(A*B)
+log(A) + log(B)
+```
+
+log-transformed likelihood ratios --> differences in likelihoods:
+can be back-transformed to calculate relative support in absolute sense
+$P(A,B)=P(A)*P(B)$
+$ln(P(A,B))=ln(P(A))+ln(P(B))$
+
+```{r}
+#to get likelihood...
+flower = (0.24)^2
+leaves = (0.36)^6
+dead = (0.4)^2
+all = flower*leaves*dead
+all
+
+#to get log likelihood...
+2*log(0.24)+6*log(0.36)+2*log(0.4)
+log(all)
+```
+
+##Bayes theorem
+
+three major conceptual points:
+1. use data to estimate parameters (probabilities)
+2. calculate probability of data given particular model (parameters)
+3. calculate likelihood (relative support) of model, given data
+
+NOW
+4.	calculate probability a model is “true”, given data
+
+-- Bayes came up with the formula to do it in the 1700s!
+
+probability of model given data equals probability of data given model
+multiplied by probability of model, divided by probability of data
+
+$$
+P(model|data)=\frac{P(data|model)*P(model)}{P(data)}
+$$
+
+P(data|model) calculated using axioms of probability
+
+P(model) before we collect any data:
+1. uninformative prior probability (if j models, = 1/j)
+2. informative prior probability... also exists?!
+
+P(data), assuming we've searched over all (n) models:
+
+$$
+P(data) = \sum_{j = 1}^nP(data|model_j)*P(model_j)
+$$
+this definition makes P(data) constant for given set of data!
+and makes Bayes theorum resemble Edwards’ definition of likelihood
+
+$$
+P(model|data)=\frac{P(data|model)*{(1/j)}}{c}
+\\
+L(H|R) = k*P(R|H)
+\\
+k = 1/jc
+$$
+$P(model|data) = L(H|R)$ IF $k = \frac{1}{n*c}$ (L = likelihood)
+
+ERGO:
+in Bayesian analysis, explicitly estimate constant relating the probability of model given data  
+   an absolute measure of support for a model!?!?! 
+   -- IF we say we have searched all possible models
+in likelihood analysis, we restrict our analyses to relative support among models
+
+# lecture four
+
+a bunch of examples to contemplate:
+$$
+P(model|data) = \frac{P(data|model)*P(model)}{P(data)}
+$$
+
+```{r}
+plantgrl <- subset(plantguy, population == "likelihood_10")
+plantgrl$p_d.m <- plantgrl$likelihood
+plantgrl$p_m <- 1/9
+plantgrl$numerator <- plantgrl$p_d.m*plantgrl$p_m
+
+p_d <- sum(plantgrl$numerator)
+
+plantgrl$p_m.d <- (plantgrl$p_d.m*plantgrl$p_m)/p_d
+
+ggplot(plantgrl, aes(x = survival, y = likelihood)) +
+  geom_line(size = 1.5) + xlim(0,1)
+
+ggplot(plantgrl, aes(x = survival, y = p_m.d)) +
+  geom_line(size = 1.5) + xlim(0,1)
+```
+
+- Lyme occurs in 0.05% of people
+- 1% false positive error rate 
+- 0% false negative error rate
+If a person is screened for Lyme, and gets a positive result, 
+what is the probability they actually have the disease?
+
+```{r}
+p_Lyme <- 0.005
+p_fine <- 0.995
+
+p_fakepos <- 0.01
+p_truepos <- 1
+
+p_data <- p_Lyme*p_truepos + p_fine*p_fakepos
+p_data
+
+p_positive <- 1*0.005/p_data
+p_negative <- 0.01*0.995/p_data
+p_positive #33% of those who test positive
+p_negative #should actually worry about it
+```
+
+psychoanalyzing your colleages:
+```{r}
+y_01 <- -67.5 #log probabilities
+y_02 <- -121.1
+y_03 <- -124.5
+y_04 <- -86.8
+p_m <- -1.386 #log(1/4)
+p_d <- log(exp(y_01 + p_m) + #-68.886
+           exp(y_02 + p_m) +
+           exp(y_03 + p_m) +
+           exp(y_04 + p_m)) #check those transformations
+
+m_01 <- y_01 + p_m - p_d
+m_02 <- y_02 + p_m - p_d
+m_03 <- y_03 + p_m - p_d 
+m_04 <- y_04 + p_m - p_d
+
+exp(m_01)
+exp(m_02)
+exp(m_03)
+exp(m_04)
+```
+
+# lecture five
+
+## binomial distribution
+
+k = number of events
+N = number of trials
+p = probability an event occurs in a single trial
+
+**mean** = average = $N*p$
+$$
+\mu = \frac{1}{n}\sum_{i=1}^nx_i
+$$
+
+**variance** = average squared deviation 
+for small $n$ and large $n$:
+$$
+\sigma^2 = \frac{1}{n-1}\sum_{i=1}^n(x_i - \mu)^2
+\\
+\sigma^2 = \frac{1}{n}\sum_{i=1}^n(x_i - \mu)^2
+$$
+expected (average) variance of the sum of two random numbers is the sum of the two variances!
+
+**standard deviation** = square root of variance
+
+**Bernoulli random variable**: single trial in which an event occurs or not
+**binomial (probability) distribution**: probability of k events out of N trials
+
+for given values of N and p, the mean value of k is $N*p$
+for given values of N and p, the variance of k is $N*p(1-p)$
+for given data on N and k, the maximum likelihood estimate of p is $k/N$
+
+mean, or Expected, value of a discrete random variable x:
+$$
+\bar{x} = E[x] = \sum_{i=1}^\infty x_i*P(x_i)
+$$
+$x_i$: possible value a parameter could take
+$P(x_i)$: probabilities of obtaining that value
+
+```{r}
+binomial <- data.frame(success = 0:19,
+                       density = dbinom(x = 0:19, size = 10, prob = 0.6),
+                       cumulative = pbinom(q = 0:19, size = 10, prob = 0.6),
+                       random = rbinom(n = 20, size = 10, prob = 0.6))
+
+#x = k, number of events
+#size = N, number of trails
+#prob = p, probability of an event in a single trial
+#log = TRUE or FALSE
+
+ggplot(binomial, aes(x = random)) + 
+  geom_histogram(bins = 20, fill = "pink") +
+  geom_col(aes(x = success, y = cumulative*10), alpha = 0.5, width = 0.5, fill = "white") +
+  geom_col(aes(x = success, y = density*10), alpha = 0.75, width = 0.5) +
+  labs(x = "Number of successes", y = "Times observed (with probabilities)")
+```
+
+binomial distribution function:
+
+$$
+P(k|N,p) = p^k*(1-p)^{N-k}*{N \choose k}
+$$
+
+$p^k$ = probability of getting k (particular) trials with events
+$(1-p)^{n-k}$ = probability of getting N-k (particular) trials with no events
+${N \choose k}$ = number of ways in which to get k events in N trials
+
+$$
+{N \choose k} = \frac{N!}{k!(N-k)!}
+$$
+$0! = 1$
+
+## Bernoulli distribution
+
+special case of binomial distribution
+still k events, N trials... but in a particular order!
+$$
+P(k|N,p) = p^k*(1-p)^{N-k}
+$$
+
+DO NOT COMPETE THESE TWO MODELS
+
+# lecture six
+
+## maximum likelihood estimation (MLE)
+
+method of estimating parameters of statistical model given observations
+by finding parameter values that maximize likelihood of those observations
+
+**four ways** to find maximum likelihood:
+
+1. likelihood profile: line/grid/cube search of all parameters
+2. calculus (sometimes): maximum (or minimum) where derivative == 0
+$$
+L(p|k,N) = p^k*(1-p)^{N-k}*{N \choose k}
+$$
+take log of both sides:
+$$
+ln[L(p|k,N)] = k*ln(p)+(N-k)ln(1-p)+ln[{N \choose k}]
+$$
+then take the derivative of both sides:
+$$
+\frac{dln[L(p|k,N)]}{dp} = \frac{k}{p}+\frac{N-k}{1-p}+0
+$$
+derivative equals zero at the maximum (or minimum):
+$$
+0 = \frac{k}{p} - \frac{N-k}{1-p}
+$$
+after some dumb fraction algebra:
+$$
+p = \frac{k}{N}
+$$
+3. clever search algorithms (e.g. Newton search algorithm)
+
+**starting value**: where algorithm starts
+**iteration**: number of repetitions of algorithm
+**convergence**: when further iteration doesn't change result
+**tolerance**: degree of accuracy required for convergence
+
+4. canned R functions (sometimes)
+
+```{r}
+#glm() 
+#estimates MLE of p (probability of success) 
+#given data on events (k) and failures (N-k)
+
+outcomes = cbind(successes = 10, failures = 20) #successes, failures NOT successes, trials
+glm(outcomes~1,family=binomial(link="identity")) #function to estimate parameters
+m1 = glm(outcomes~1,family=binomial(link="identity")) #save as object to see results
+logLik(m1) #extract log likelihood, evaluated at MLE
+coef(m1) #extract maximum likelihood estimates of coefficients
+```
+
+```{r}
+weevil = data.frame(site = c("H","H","S","S","V","V"),
+                    species = rep(c("red","white"),3),
+                    weevils = as.numeric(c(584,406,910,308,391,500)),
+                    no_weevils = as.numeric(c(187,74,118,66,101,82)))
+weevil
+```
+
+estimate MLE proportion of acorns with weevils, for each species:
+```{r}
+red.weevils = c(584,910,391)
+red.failure = c(187,118,101)
+red.data = cbind(red.weevils, red.failure)
+m2 = glm(red.data~1,family=binomial(link="identity"))
+logLik(m2)
+coef(m2)
+
+white.weevils = c(406,308,500)
+white.failure = c(74,66,82)
+white.data = cbind(white.weevils, white.failure)
+m3 = glm(white.data~1,family=binomial(link="identity"))
+logLik(m3)
+coef(m3)
+```
+
+# lecture seven
+
+## likelihood ratio test (LRT) 
+(Edwards 1972)
+
+LRT for a pair of nested models:
+$$
+-2ln\frac{L_1}{L_2}\sim\chi^2
+\\
+df = k_2 - k_1
+$$
+$L_1$ - likelihood of simpler model
+$L_2$ - likelihood of more complex model
+$k_1$ - number of estimated parameters in simpler model
+$k_2$ - number of estimated parameters in more complex model
+$\chi^2$ - chi-squared distribution
+
+```{r}
+chi_density <- data.frame(x_value = rep(0:20, 4),
+                          df = rep(c("1","3","6","9"), each = 21),
+                          density = c(dchisq(x = 0:20, df = 1),
+                                      dchisq(x = 0:20, df = 3),
+                                      dchisq(x = 0:20, df = 6),
+                                      dchisq(x = 0:20, df = 9)),
+                          cumulative = c(pchisq(q = 0:20, df = 1),
+                                         pchisq(q = 0:20, df = 3),
+                                         pchisq(q = 0:20, df = 6),
+                                         pchisq(q = 0:20, df = 9)))
+                          #random = c(rchisq(n = 20, df = 1),
+                          #           rchisq(n = 20, df = 3),
+                          #           rchisq(n = 20, df = 6),
+                          #           rchisq(n = 20, df = 9)))
+
+ggplot(chi_density, aes(x = x_value, 
+                        y = density,
+                        group = df, 
+                        color = df)) + 
+  geom_line(size = 1) +
+  geom_line(aes(x = x_value, y = cumulative, color = df), alpha = 0.5) +
+  labs(x = "Likelihood", y = "Probability")
+```
+
+use cumulative density function to get a p-value
+```{r}
+ln_L1 <- -3.1 #simpler model
+ln_L2 <- 3 #more complex model has to be MUCH better to beat it
+exp(ln_L1)
+exp(ln_L2)
+pchisq(-2*(ln_L1-ln_L2), df = 5, lower.tail = F) 
+```
+
+conventions:
+- for nested models fit to same data set
+- go through and compare one pair at a time
+- only retain more complex model if	p < 0.05
+...which means that the probability that a random parameter 
+would improve the likelihood by that much or more is < 5%
+- “deviance” is proportional to $-2ln(L)$
+
+## an information criterion (AIC)
+(Akaike 1974)
+
+AIC for a single model $2k - 2ln(L)$
+$L$ - likelihood of model evaluated at MLE parameters
+$k$ - number of estimated parameters 
+
+conventions:
+- for nested OR non‐nested models fit to same data set
+- compare relative support for two OR MORE models at a time
+- the model that produces the lowest AIC “wins” the competition
+- models within 2 of the lowest AIC value should not be discarded
+- report difference from best model in a set as dAIC or $\Delta AIC$
+
+# lecture eight
+
+## normal distribution
+```{r}
+normal <- data.frame(x_value = -10:10,
+                     density = dnorm(x = -10:10),
+                     cumulative = pnorm(q = -10:10),
+                     random = rnorm(n = 21))
+
+ggplot(normal, aes(x = random)) + 
+  geom_histogram(bins = 21, fill = "pink") +
+  geom_col(aes(x = x_value, y = cumulative*5), 
+           alpha = 0.5, width = 0.5, fill = "white") +
+  geom_col(aes(x = x_value, y = density*5), 
+           alpha = 0.75, width = 0.5)  +
+  labs(x = "x", y = "P(x)") 
+```
+
+log-likelihood ratio is a continuous variable!
+and should fit a chi-squared distribution (above)
+
+“frequentist” model selection with LRT:
+more complex model is “significantly” better when p < 0.05 
+   i.e., when the cumulative distribution function > 0.95
+if you add one parameter (df = 1), this happens when $-2ln\frac{L_1}{L_2}>3.84$
+
+```{r}
+pchisq(3.85, df = 1, lower.tail = F) 
+```
+
+three different probabilities:
+- probability of the data, given the model
+- probability of an event from a binomial distribution
+- probability of likelihood ratio obtained with LRT
+
+# lecture nine
+
+dataset on vole occupancy of islands:
+```{r}
+years = 1972:1977
+with.voles = c(16, 17, 28, 21, 04, 19)
+wout.voles = c(24, 23, 12, 19, 36, 21)
+voles = data.frame(years, with.voles, wout.voles) # create data frame
+voles$response = cbind(success = with.voles, # create response variable
+                       failure = wout.voles) # for binomial analysis
+voles # look at data
+str(voles)
+```
+
+## model creation
+
+1. proportion occupied is constant
+```{r}
+m1 = glm(response ~ 1, family = binomial(link = "identity"), data = voles)
+coef(m1)
+logLik(m1)
+```
+
+2. proportion occupied is different each year
+
+NESTED: model 1 is a special case of model 2 that happens when:
+$p_{1972} = p_{1973} = p_{1974} = p_{1975} = p_{1976} = p_{1977} = p_{all}$
+
+```{r}
+m2 = glm(response ~ as.factor(years), family = binomial(link = "identity"), data = voles)
+coef(m2)
+logLik(m2)
+
+m2 = glm(response ~ -1 + as.factor(years), family = binomial(link = "identity"), data = voles)
+coef(m2)
+logLik(m2)
+```
+
+3. proportion occupied shows a linear trend through time
+two parameters, slope and intercept: $p_i = b_0 + b_1×year$
+
+NESTED: model 1 is a special case of model 3 that happens when:
+$$p_i = b_0 + b_1×year\\b_1 = 0\\p_i = b_0\\p_{all} = b_0$$
+
+NESTED: model 2 is a special case of model 3 that happens when:
+$$
+p_{1973} = p_{1972}+b_1×1
+\\
+p_{1974} = p_{1972}+b_1×2
+\\
+p_{1975} = p_{1972}+b_1×3
+$$
+
+```{r}
+m3 = glm(response ~ years, family = binomial(link = "identity"), data = voles)
+coef(m3)
+logLik(m3)
+
+voles$predicted <- predict(m3)
+voles$proportion <- voles$with.voles/(voles$with.voles + voles$wout.voles)
+
+ggplot(voles, aes(x = years, y = predicted)) +
+  geom_line(color = "red") +
+  geom_point(aes(y = proportion)) +
+  labs(x = "year", y = "proportion of skerries occupied")
+
+```
+
+## model competition
+```{r}
+# LRT of m1 (constant) vs. m2 (years differ)
+LRT1 = as.numeric(-2*(logLik(m1)-logLik(m2))) #0!
+df1 = 6-1
+pchisq(LRT1, df1, lower.tail = F) # occupancy differs significantly among years!
+
+# LRT of m1 (constant) vs. m3 (linear trend)
+LRT2 = as.numeric(-2*(logLik(m1)-logLik(m3)))
+df2 = 2-1
+pchisq(LRT2, df2, lower.tail = F) # no evidence for trend over time
+
+# shortcut to doing a LRT
+library(lmtest)
+lrtest(m1, m2)
+lrtest(m1, m3)
+
+# comparing all three models at once using AIC
+AIC(m1)
+AIC(m2)
+AIC(m3)
+
+# shortcut to comparing AICs
+library(bbmle)
+ICtab(m1, m2, m3)
+```
+
+## likelihood profiles
+```{r}
+vole_profile = data.frame(x_values = seq(0,1,0.001))
+for(i in 1:length(vole_profile$x_values)) {
+  vole_profile$logLikes[i] = sum(dbinom(x = voles$with.voles, 
+                                        size = 40, 
+                                        prob = vole_profile$x_values[i], 
+                                        log = T))
+}
+
+threshold <- as.numeric(logLik(m1)-1.92) # 3.84/2, threshold value for profile CI
+lower_limit <- vole_profile$x_values[min(which(vole_profile$logLikes > threshold))] 
+upper_limit <- vole_profile$x_values[max(which(vole_profile$logLikes > threshold))] 
+
+ggplot(vole_profile, aes(x = x_values, y = logLikes)) +
+  geom_point(color = "purple") + labs(x = "proportion occupied", y = "log likelihood") +
+  geom_hline(yintercept = threshold, color = "cyan", size = 1) + 
+  geom_vline(xintercept = coef(m1), color = "blue") +
+  geom_vline(xintercept = lower_limit, color = "blue", linetype = "dashed") + 
+  geom_vline(xintercept = upper_limit, color = "blue", linetype = "dashed") +
+  xlim(0.25, 0.75) + ylim(-35, -27.5) 
+```
+
+```{r}
+# MAJOR SHORTCUT
+confint(m1)
+confint(m2)
+confint(m3)
+```
+
+## Akaike weights
+
+ratio of $\Delta AIC$ values for each model relative to the whole set of candidate models
+```{r}
+ICtab(m1, m2, m3, weights = T)
+weights = data.frame(
+  model_1 = exp(-1/2*AIC(m1))/sum(exp(-1/2*AIC(m1)),exp(-1/2*AIC(m2)),exp(-1/2*AIC(m3))),
+  model_2 = exp(-1/2*AIC(m2))/sum(exp(-1/2*AIC(m1)),exp(-1/2*AIC(m2)),exp(-1/2*AIC(m3))),
+  model_3 = exp(-1/2*AIC(m3))/sum(exp(-1/2*AIC(m1)),exp(-1/2*AIC(m2)),exp(-1/2*AIC(m3))))
+weights
+
+ICtab(m1, m3, weights = T)
+weights = data.frame(
+  model_1 = exp(-1/2*AIC(m1))/sum(exp(-1/2*AIC(m1)),exp(-1/2*AIC(m3))),
+  model_3 = exp(-1/2*AIC(m3))/sum(exp(-1/2*AIC(m1)),exp(-1/2*AIC(m3))))
+weights
+```
+
+# lecture 10
+
+binomial distribution involves k events out of N total trials
+p = probability of ONE event in ONE trial (parameter we estimate)
+link function: logit, because p bounded between 0 and 1 (p/(1-p))
+                              and k bounded between 0 and N
+
+$$
+E[k] = \mu = Np 
+\\
+Var[k] = \sigma^2 = Np(1-p)
+\\
+0 \leq k \leq N
+\\
+0 \leq p \leq 1
+$$
+ 
+how to back-transform logit values:
+```{r}
+m1 = glm(response ~ -1 + as.factor(years), 
+         family = binomial(link = "identity"), 
+         data = voles)
+coef(m1)
+confint(m1)
+
+m2 = glm(response ~ -1 + as.factor(years), 
+         family = binomial, 
+         data = voles)
+plogis(coef(m2)) 
+plogis(confint(m2))
+```
+
+## Poisson distribution
+
+deals with the number of events over a given area in space or time
+
+N = number of events (dependent variable)
+$\lambda$ = average N per unit area or time (rate parameter, parameter we estimate)
+$\frac{1}{\lambda}$ = probability of an event
+link function: log, because $\lambda$ has lower bound at 0
+
+$$
+E[k] = \mu = \lambda
+\\
+Var[k] = \sigma^2 = \lambda
+\\
+0 \leq N \leq \infty
+\\
+0 \leq \lambda \leq \infty
+\\
+E[log(\lambda)] = b_0
+\\
+N\sim Poisson(\lambda = exp(b_0))
+$$
+
+## zero-inflated Poisson distribution
+```{r}
+library(pscl)
+m2 = zeroinfl(Count~1)
+m3 = zeroinfl(Count~1,offset=log(Party.hours))
+summary(m2)
+```
+
+## negative binomial distribution
+
+average of Poisson distributions with different means
+
+means described by a second gamma distribution
+
+## zero-inflated negative binomial distribution
+
+1. some sites suitable and some unsuitable
+
+2. variation in quality of suitable habitat
+
+theta: parameter describing variation among occupied sites
+
+```{r}
+m4 = zeroinfl(Count~1,offset=log(Party.hours),dist="negbin")
+```
+
+migrating bluebirds
+
+```{r}
+m5 = zeroinfl(Count~1|Latitude,data=birds2,offset=log(Party.hours))
+```
+
+# lecture stress
+
+1. being normal
+
+you get a normal distribution by adding up numbers from ANY arbitrary probability distribution, even the really whacky ones
+
+the product of a large number of values from any set of positive random numbers will be log-normally distributed
+
+2. model selection strategies
+
+distributions: binomial, Poisson, normal, exponential, mixes
+
+3. evaluating categorical groups (factors)
