@@ -1,0 +1,62 @@
+---
+title: "Likelihood"
+author: "Eric Scott"
+date: "2020-01-21"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Alternative presentation: 	Bolker, pp 103-104
+## Probability: textbook explanation #2:
+- big circle = all possibilities, $S$
+- little circle #1 = event $A$
+		+ probability of event $A$, $P(A) = \frac{\textit{area of little circle}}{\textit{area of big circle}}$
+- add 2nd little circle = event B
+    + probability of event B, $P(B) = \frac{\textit{area of 2nd circle}}{\textit{area of big circle}}$
+- A and B are **mutually exclusive**.  Impossible for them to both occurr.
+- Probability of A or B, $P(A+B) = P(A) + P(B)$  **OR rule**
+- add 3nd little circle = event $C$ (partly overlaps event $A$)
+- A and C are **not** mutually exclusive.
+		+ probability of event C, $P(C) = \frac{\textit{area of 3rd circle}}{\textit{area of big circle}}$
+		+ probability of A or C $P(A + B) = P(A) + P(B) –  \textit{area of overlap}$ **need to correct for possibility of both ocurring**
+		+ probability of A and B, $P(A,B) = \frac{\textit{area of overalp}}{\textit{area of big circle}}$
+
+### Notation:
+
+- $P(A)$: probability of event A
+- $P(B)$: probability of event B
+- $P(A+B)$: probability  of event A or B
+- $P(A,B)$: probability of events A and B
+- $P(A|B)$: probability that event A occurs, conditioned on the fact that event B has occurred
+
+
+## Definitions
+
+1. Mutually exclusive events: $P(A,B) = 0$  [i.e., it is impossible for both to occur]
+- if A and B are mutually exclusive, $P(A,B) = 0$
+- in this case,  $P(A + B) = P(A) + P(B)$
+	
+
+2. Conditional probability, $P(C|A)$ [the probability that one event occurs, given that we know the other has]
+- probability of A given C, $P(C|A) = \frac{\textit{area of overlap}}{\textit{area of C}}$
+- this is called conditional probability of A
+- $P(C|A)=  P(A,C)/P(A)$
+			
+3. Independent events:  whether one occurs does not affect whether the other does
+- So, $P(C|A) = P(A,C)/P(A)$
+- if A and C are independent then $P(C|A) = P(C)$
+- So $P(C) = P(A,C)/P(A)$, and $P(A,C) = P(A)\times P(C)$
+- this is the **AND rule**
+
+Two MAJOR axioms of probability ….
+	1. Probability that one of two mutually exclusive events occurs:
+		$P(A+B) = P(A) + P(B)$
+	2. Probability that (both of) two independent events occur:
+		$P(A,B) = P(A) \times P(B)$
+
+Using these two axioms allow us to do fairly sophisticated statistical analysis:
+
+
