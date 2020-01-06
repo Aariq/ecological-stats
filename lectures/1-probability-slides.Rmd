@@ -1,32 +1,38 @@
 ---
-title: "Ecological Statisitics and Data"
+title: "Welcome to Ecological Statistics and Data!"
 author: "Eric Scott"
-date: "2019-01-16"
+date:  "2019-01-16"
 output:
-  pdf_document: default
-  html_document: default
+  powerpoint_presentation:
+    reference_doc: template.pptx
 ---
-## Welcome to Ecological Statistics and Data!
 
-"Modeling" vs. "statistics"
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Overview
 
 - 20th century: design experiments to fit statistical analysis assumptions  
 - 21st century: option to design statistical models to be more like data  
-   + But, with great power comes great responsibility
+   + Focus on linear models and their extensions
 
-"Ecological"
+## Why "Ecological" statistics?
 
 - Ecologists often count things and watch when they reproduce and die
-- These types of data have special properties not typically covered in as much depth in more general or introductory courses
-- Focus on linear models and their extensions
+- These types of data have special properties
+- Violate assumptions of statistical tests typically covered in more general or introductory courses
 
 ## Introductions
 
-- Me: your instructor, a chemical ecologist studying tea chemistry and climate change
-- Avalon: your TA, an ecologist studying fireflies and light pollution
-- You: Undergraduates and graduate students from several departments with varied backgrounds in math, statistics, computer programming, and ecology.
+The team:  
 
-I want you to take advantage of that variation and learn from eachother.  Also, don't be afraid to ask questions!  I'm likely to incorrectly assume you know something that you don't!
+- Eric Scott (eric.scott@tufts.edu)
+- Avalon Owens (avalon.owens@tufts.edu)
+
+The class:   
+
+- Undergraduate and graduate students from several departments with varied backgrounds in math, statistics, computer programming, and ecology.
 
 ## Today's Outline
 
@@ -36,36 +42,18 @@ I want you to take advantage of that variation and learn from eachother.  Also, 
 
 ## Logistics
 
+Take a look at the syllabus:
+
 - General format (lectures mixed with computer exercises – find a partner or 2)
 - Books: 	Bolker, R4DS
 - Syllabus
 - Access to laptops
 - Lab
 
-## Outline for next few weeks
+## Probability: textbook definition
 
-1. Probability
-2. Liklihood
-3. Bayes' Theorum
-4. Linear models
+"If an observation is made $N$ times and event $A$ occurs $N_A$ times, then with a high degree of **certainty**, the relative frequency of $N_A/N$ is **close** to $P(A)$, the probability of $A$ in a single trial, $P(A) \approx N_A/N$, provided $N$ is **sufficiently large**."
 
-## Probability: textbook explanation #1  
-Vocabulary: 
-
-- “event” something that does or does not occur (person has a cold or not; stalk of a plant has a flower or not; you heard a woodpecker or not)
-
-- “trial” = single observation or data point or “experiment” in which the event can occur or not (single person; single stalk; single walk in the woods when you listened for woodpeckers)
-
-Notation:
-- $P(A)$ = probability that an event (A) will occur in a single trial
-- $N$ = total number of trials
-- $N_A$ = number of times A occurs
-
-technical definition of probability: 
-
->If an observation is made $N$ times and event $A$ occurs $N_A$ times, then with a high degree of certainty, the relative frequency of $N_A/N$ is close to $P(A)$, the probability of $A$ in a single trial, $P(A) \approx N_A/N$, provided $N$ is sufficiently large.
-
-- Basically describing sampling randomly to get at a *true* probability
 
 Mathematical restatement:   
 
@@ -73,10 +61,6 @@ $$
 P(A) = \lim_{N\to\infty} \left(\frac{N_A}{N}\right)
 $$
 
-- How certain?
-- How close?
-- How large?
--	… this is why we need statistics.
 
 ## Example application  
 
@@ -86,6 +70,8 @@ Useful to know to understand and predict what will happen to populations over ti
 - Mark individual plants and watch their performance over time.   
 -	What is the probability that a plant will survive from one year to the next?  
 -	What is the probability that a plant that survives will flower?  
+
+## Example application
 
 FOR A PARTICULAR DATA SET, we can use the definition of probability to estimate these probabilities (“provided N is **sufficiently large**”)
 
@@ -104,17 +90,17 @@ $N$ = total # trials
 $N_A$ = number of times $A$ occurs
 
 Survival:  
-- What is $N$? [5]	
-- What is $N_A$?[4]
+
+- What is $N$?
+- What is $N_A$?
 - What is $P(A)$?
 
-$P(A) \approx 0.8$
 
 Flowering, for plants that survive:  
-- What is $N$?	[4] 
-- What is $N_A$?	[1]
 
-$P(A) \approx 0.25$
+- What is $N$?
+- What is $N_A$?
+- What is $P(A)$?
 
 **FOR THOUGHT:** Based on these data, what is the probability that a plant survives AND flowers?
 
@@ -135,3 +121,4 @@ Trials should be **representative** and **independent**.
 ## Homework
 
 Measure a probability of some event by sampling a population.
+
