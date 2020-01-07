@@ -1,0 +1,1 @@
+The .Rmd files are my lecture notes.  I use those to make a slides.Rmd file which I knit into a .pptx.  Then I do any necessary revisions and tweaks on the .pptx and save as slides-rev.pptx.
