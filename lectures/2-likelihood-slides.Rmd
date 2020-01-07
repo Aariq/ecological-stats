@@ -1,0 +1,173 @@
+---
+title: "From Probability to Likelihood"
+author: "Eric Scott"
+date: "2020-01-21"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Probability Notation:
+
+- $P(A)$: probability of event A
+- $P(B)$: probability of event B
+- $P(A+B)$: probability  of event A or B
+- $P(A,B)$: probability of events A and B
+- $P(A|B)$: probability that event A occurs, conditioned on the fact that event B has occurred
+
+
+## Definitions
+
+1. Mutually exclusive events: 
+    - impossible for both to occur, i.e. $P(A,B) = 0$
+    - in this case,  $P(A + B) = P(A) + P(B)$
+	
+2. Conditional probability:
+    - probability that one event occurs, given we know the other has
+    - $P(C|A) = P(A,C)/P(A)$
+			
+3. Independent events:  
+    - whether one occurs does not affect whether the other does
+    - if A and C are independent then $P(C|A) = P(C)$
+    - So substitute into conditional probability...
+        - $P(C) = P(A,C)/P(A)$, and $P(A,C) = P(A)\times P(C)$
+
+## Two MAJOR axioms of probability
+
+1. Probability that one of two mutually exclusive events occurs: 
+	
+    - $P(A+B) = P(A) + P(B)$
+	
+2. Probability that (both of) two independent events occur:
+	
+    - $P(A,B) = P(A) \times P(B)$
+
+Using these two axioms allow us to do fairly sophisticated statistical analysis:
+
+
+## Example: our small orchid population
+
+We have 5 plants, 4 live, and 1 of these flowers
+
+| Plant#|  fate|
+|--:|--:|
+|  1|  Flowering|
+|  2|  Vegetative|
+|  3|  Vegetative|
+|  4|  Vegetative|
+|  5|  Dead|
+
+Survival (s):  $P(A) \approx 0.8$
+
+Flowering, for plants that survive (f):  $P(A) \approx 0.25$
+
+## QUESTION: Is N “large enough” to get a good estimate?
+
+One way to answer this question is to compare different values of $s$ and $f$, to find out what range of values are consistent with our data.
+
+### STEP 1
+
+FOR A PARTICULAR PAIR OF VALUES OF $s$ and $f$, we can calculate the probabilities of our getting our demographic data set using the axioms of probability
+
+[on board]
+
+### Step 2
+
+Compare this to a different set of parameters.  ASSUME  $s = 0.6$, $f = 0.4$
+
+[on board]
+
+### Step 3
+
+**SO**:  The probability of getting our data is about twice as high with our first set of parameters as with the second.
+
+**BUT**: What does that tell us about the parameter estimates?
+
+
+## Likelihood
+
+Using probabilities (of data), we can compute the **likelihoods** of different parameters/models/hypotheses (and, later, alternative competing, models that differ in other ways), given our data set.
+
+Edwards (1972) DEFINITION:
+
+>“The likelihood, $L$, of the hypothesis $H$ given data $R$, is proportional to $P(R|H)$, the constant of proportionality being arbitrary"[but specific to a particular data set]
+
+Edwards’ definition means that the likelihood of the 1st set of parameters is proportional to 0.00864
+
+$L_1 = L(s=0.8, f = 0.2|R) =  k_1\times 0.00864$
+
+and the likelihood of the second set of parameters is proportional to 0.00448
+
+$L_2 = L(s = 0.6, f = 0.4|R) = k_2 \times 0.00448$
+
+If the two models, $H_1$ and $H_2$ are fit to EXACTLY the same set of data, $k_1 = k_2 = k$ and we can say that the first set of parameters is about twice as likely as the second set, given our small data set.  
+
+## Likelihood ratio
+
+The **likelihood ratio** is our primary method of comparing models: 
+
+$$
+\frac{L_1}{L_2} = \frac{0.00864 \times k}{0.00448 \times k}=1.93
+$$
+
+which means our first set of parameters, $H_1 (s=0.8, f = 0.2)$ is about twice as likely as our second, $H_2 (s = 0.6, f = 0.4)$, given this small data set.
+
+## Magic!
+```{r}
+knitr::include_graphics(here::here("lectures", "mathematical.gif"))
+```
+
+We have gone from calculating the probability of our **data**, given fixed parameters, to making inferences about support for different possible values of our parameters (AKA models, hypotheses), given a dataset.
+
+Likelihoods can be used to test if one set of parameters is *significantly* better than another (coming soon).
+
+## More About Likelihoods
+
+- Data set specific!
+
+- Another, luckier botanist finds 10 orchids, with exactly the same (proportional) distribution of fates: 2 flowering, 6 vegetative, 2 deaths
+
+- Likelihood of model #1: $L(s=0.8, f = 0.25|R_2)  = ?$
+
+- Likelihood of model #2: $L(s=0.6, f = 0.4|R_2)  = ?$
+
+- Likelihood ratio: $\frac{0.00007465 \times k_3}{0.00002006 k_3}=3.72$
+
+## 3 Features of Likelihood
+
+1. Because it’s the product of probabilities (and probabilities are all < 1), adding more data **reduces** the likelihood of any particular model.
+    - Can't compare models fit to different data
+
+2. Adding more data makes the **likelihood ratio** between two models get larger (all else being equal; i.e., if the 2nd data set were identical to the first) because of the **AND** rule.
+    - Larger sample size = greater ability to detect small differences
+
+3. To avoid dealing with tiny numbers for typical (large) data sets, we often use log likelihoods:
+    - $\ln(0.00007465) = -9.50$
+    - $\ln(0.00002006) = -10.82$
+
+## Rules of working with exponents and logarithms: 
+
+1. Exponential transformation “undoes” (natural) log transformation, and vice versa:
+
+    - $\ln(\exp(A)) = A$
+    - $\exp(\ln(A)) = A$
+
+2. Log transformation converts multiplication & division into addition & subtraction
+
+    - $\ln(AB) = \ln(A) + \ln(B)$
+    - $\ln(A/B) = \ln(A) – \ln(B)$
+    - Therefore, $\ln(A^C) = C\times \ln(A)$
+
+## Implications for the and axiom of probability
+
+* $P(A,B) = P(A)P(B)$
+* $\ln[P(A,B)] = \ln[P(A)] + \ln[P(B)]$
+* Log-likelihoods of H1 and H2 [on board]
+- log-transformed likelihood ratio become differences in likelihoods
+- *log-likelihood ratio* can be backtransformed to calculate relative support in an absolute sense:
+    - $\exp(1.32) = 3.72$
+

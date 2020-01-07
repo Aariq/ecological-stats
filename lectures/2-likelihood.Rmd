@@ -24,8 +24,11 @@ Alternative presentation: 	Bolker, pp 103-104
 - add 3nd little circle = event $C$ (partly overlaps event $A$)
 - A and C are **not** mutually exclusive. 
 	+ probability of event C, $P(C) = \frac{\textit{area of 3rd circle}}{\textit{area of big circle}}$
-	+ probability of A or C, $P(A + C) = P(A) + P(C) - \textit{area of overlap}$. **need to correct for possibility of both ocurring**
+	
 	+ probability of A and C, $P(A,C) = \frac{\textit{area of overalp}}{\textit{area of big circle}}$
+	
+	+ probability of A or C, $P(A + C) = P(A) + P(C) - P(A,C)$. **need to correct for possibility of both ocurring**
+	
 
 ### Notation:
 
@@ -44,8 +47,8 @@ Alternative presentation: 	Bolker, pp 103-104
 	
 
 2. Conditional probability, $P(C|A)$ [the probability that one event occurs, given that we know the other has]
-- probability of A given C, $P(C|A) = \frac{\textit{area of overlap}}{\textit{area of C}}$
-- this is called conditional probability of A
+- probability of C given A, $P(C|A) = \frac{\textit{area of overlap}}{\textit{area of C}}$
+- this is called conditional probability of C
 - $P(C|A)=  P(A,C)/P(A)$
 			
 3. Independent events:  whether one occurs does not affect whether the other does
@@ -227,14 +230,71 @@ $$
 This is the *log-likelihood ratio*.  Can be backtransformed to calcualte relative support in an absolute sense:
 - $\exp(1.32) = 3.72$
 
-AS TIME PERMITS:
+## AS TIME PERMITS:
 
 1. Ignoring flowering (for now), explore the likelihood of different values of survival, given the 5-plant data set.  
-    a. Calculate the likelihood of survival having each of the following values: 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9.
-    b. Make a graph of the log-likelihood (y-axis) vs. value of survival (x-axis).
-    c. Repeat a&b for the 10-plant data set.  How does the shape of the graph change?
-    d. What is the likelihood that survival is 0?  Or 1? What happens to the log-likelihood at these values?
+a. Calculate the likelihood of survival having each of the following values: 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9.
+
+```{r}
+s <- seq(0.1, 0.9, 0.1)
+s
+orchid_sm_lik <- s^4 * (1-s) #vectorized over all values of s
+orchid_sm_lik
+```
+
+b. Make a graph of the log-likelihood (y-axis) vs. value of survival (x-axis).
+
+```{r}
+#base R plotting
+plot(s, log(orchid_sm_lik))
+```
+
+    
+c. Repeat a&b for the 10-plant data set.  How does the shape of the graph change?
+
+```{r}
+orchid_lg_lik <- s^8 * (1-s)^2
+```
+
+```{r}
+#base R plotting
+plot(s, log(orchid_lg_lik))
+```
+```{r}
+#using ggplot2 to put both lines on the same plot
+library(tidyverse)
+# make a 'tidy' dataframe/tibble for plotting
+df <-
+  tibble(
+    dataset = c(rep("small", 9), rep("large", 9)), #column indicating which dataset
+    s = c(s,s), #x-axis values
+    likelihood = c(orchid_sm_lik, orchid_lg_lik),
+    log_lik = log(likelihood)
+  ) #you can do math while creating a tibble
+
+head(df)
+```
+
+```{r}
+ggplot(df, aes(x = s, y = log_lik, color = dataset)) +
+  geom_point() +
+  geom_line() #add connecting lines
+```
+
+d. What is the likelihood that survival is 0?  Or 1? What happens to the log-likelihood at these values?
+
+```{r}
+0^8 * (1-0)^2
+log(0)
+```
+
 2. Thinking about probabilities...
-    a.	What is $P(B|A)$ for two mutually exclusive events?  Is it possible for events to be independent and mutually exclusive?
-    b.	What is the probability that A **or** B occurs if they are **not** mutually exclusive?
-  
+
+a.	What is $P(B|A)$ for two mutually exclusive events?  Is it possible for events to be independent and mutually exclusive?
+
+>$P(B|A)=0$ because there is no overlap.  Not possible for events to be independent and mutally exclusive.  E.g. heads & tails aren't independent.
+    
+b.	What is the probability that A **or** B occurs if they are **not** mutually exclusive?
+    
+> $P(A+B) = P(A) + P(B) - P(A,B)$
+
