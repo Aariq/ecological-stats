@@ -139,7 +139,8 @@ ERGO: $P(A)*P(B) = 0$
 1. exponential transformation undoes log transformation, and vice-versa
 
 ```{r}
-A=5
+A<-5
+# R uses natural log as default
 log(exp(A))
 exp(log(A))
 ```
@@ -152,9 +153,13 @@ $ln(A^C) = C*ln(A)$
 
 ```{r}
 A=5
-B=5
+B=6
 log(A*B)
 log(A) + log(B)
+
+C <- 3
+log(A^C)
+C * log(A)
 ```
 
 log-transformed likelihood ratios --> differences in likelihoods:
