@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r include=FALSE}
 library(tidyverse)
-source(here::here("plot_theme.R"))
+# source(here::here("plot_theme.R"))
 library(patchwork)
 ```
 
@@ -101,6 +101,9 @@ prob_un
 ```
 
 ## Bayes' theorem with informative prior
+```{r}
+df_un %>% 
+```
 
 ## Protocorm thing
 
