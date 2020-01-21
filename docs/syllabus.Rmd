@@ -51,6 +51,7 @@ options(knitr.kable.NA = '')
 knitr::kable(sched_table)
 ```
 
+**Final Exam: Wednesday, May 6 7:00 -- 9:00pm**
 
 ### Grading:
 Grades will be based on attendance/participation, approximately weekly homework assignments, which will be given a qualitative score (exceeds expectations, meets expectations, needs improvement, unacceptable), participation in lab exercises, and three graded tests.  The basic calculation will be:
