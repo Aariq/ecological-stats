@@ -1,0 +1,228 @@
+---
+title: "Binomial Probability Distribution"
+author: "Eric Scott"
+date: "2020-01-30"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+Bolker text pg: 120-122
+
+## Probabilty distributions
+
+So far, we have been dealing with Bernoulli random variables: the probability of getting a single event in a single trial.  It can also be used to calculate the probability of getting any particular sequence of results in some number of trials.
+
+A probability **distribution** is the probability assigned to each possible value of the random variable (outcome of an experiment or observation)
+
+For a Bernouli random variable, there are only two possible mutually exclusive outcomes, so distribution of probabilities is only defined by P("success").
+
+We write the distribution as:
+
+$$
+X \sim Bernouli(p)
+$$
+
+Where *X* is the random variable (outcome) and *p* is probability of success and "~" is read as "distributed as".
+
+## Binomial distribution
+
+What if we have more than one trial?
+
+The Binomial distribution is related to Bernoulli.  It shows the probability of getting *k* events out of *N* unordered trials, if each trial has probability *p* of an event. 
+by convention	
+
+- *N* = # trials
+- *k* = # events (AKA "successes")
+- *p* = probability an event occurs 
+
+Example: All possible outcomes from 2 trials (with independent events), and probability p:
+	e.g., say you do **two** walks and see one butterfly [N = 2 trials (a walk), k = 1 event (a butterfly)].
+
+
+| trial 1| trial 2|
+|--:|--:|
+|       1|	     1|	
+|       1|       0|	
+|       0|       1|	
+|       0|       0|	
+
+So there’s only **ONE** possibility where you see two butterflies, only **ONE** possibility that you see no butterflies, but **TWO** that get one butterflies, one not. 
+
+- 
+
+Thus:
+
+- $Pr \lbrace k=2|N=2, p\rbrace = p^2$ (walk 1 AND walk 2)
+- $Pr\lbrace k=0|N=2, p \rbrace = (1-p)^2$ (not walk 1 AND not walk 2)
+- $Pr\lbrace k=1|N=2, p\rbrace = p(1-p) + (1-p)p = 2p(1-p)$	(walk 1 AND not walk 2 OR walk 2 AND not walk 1)
+
+(Axiom #1 – mutually exclusive events)
+
+## It's a distribution!
+
+This is a “distribution” because it shows the probabilities of different outcomes, given the data
+
+- x-axis = # of events
+- y-axis = probability
+
+Show binomial distributions with N = 4, 20 and p = 0.1, 0.4
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(glue) #lets you put variables into strings with {}.  Alternative to paste()
+
+p_success <- 0.1
+N <- 20
+
+plot_data1 <- tibble(x = 0:N,
+                     y = dbinom(x, size = N, prob = p_success))
+
+ggplot(plot_data1, aes(x,y)) +
+  geom_col() +
+  labs(title = glue("binomial distribution for {N} trials, P(event) = {p_success}"),
+       x = "# events",
+       y = "probability")
+```
+
+
+## Binomial distribution as an equation:
+
+$$
+Pr \lbrace x = k|N,p \rbrace = \big(p^k(1-p)^{N-k} \big) {n \choose x}
+$$
+Walking through this equation:
+
+- p^k^ = probability of recapturing k particular events (Axiom # 2 – independent events)
+
+- (1-p)^N-k^  = the probability of not recapturing N-k particular particular (Axiom #2)
+
+- ${n \choose k}$ = the number of ways you can get k events in N trials 
+
+**Show how this simplifies in our example with two walks.**
+
+### N choose k
+
+to understand the meaning of “the number of ways you can get k events in N trials”, write out all possibilities.
+
+${n \choose k}$ is mathematical notation for the number of ways you can get k events in N trials:
+
+$$
+{n \choose k} = \frac{N!}{k!(N-k)!} = \frac{N \times (N-1) \times (N-2) \times ...\times [N-(N-1)]}{\lbrace k \times (k-1) \times ... \times [k-(k-1)]\rbrace \lbrace(N-k) \times (N-k-1)\times ... \times [N-k-(N-k-1)]}
+$$
+e.g.,  
+
+$$
+{2 \choose 1} = \frac{2!}{2!(2-1)!} = \frac{2 \times 1}{1 \times 1} = 2
+$$
+
+and  
+
+$$
+{2 \choose 2} = \frac{2!}{2!(0!)} = \frac{2 \times 1}{2\times 1 \times 1} = 1
+$$
+
+(NOTE: By definition, 0! = 1)
+
+
+
+## Using Binomial distribution to calculate support for a model:  
+
+- Recall that L(model|data) is proportional to P(data|model).
+- use the Binomial distribution to calculate the likelihood of values of p, given N = 2, k = 1
+
+Possible parameters:
+
+$$
+L(k = 1 | N = 2, p) = (p^k(1-p)^{N-k}){N \choose k}
+$$
+
+$$
+= (p^1(1-p)^{2-1}){2 \choose 1} = 2p(1-p)
+$$
+ASIDE: The equation for the Binomial distribution shows its similarity to the Bernoulli distribution.  The *probability* of getting k successes differs between ordered (Bernoulli) and unordered (Binomial) data sets, but the *likelihood* is effectively the same because it differs by a constant, specifically N-choose-k.  This falls out in the wash with the mysterious “arbitrary constants”.
+
+SO: you can compare different models to a data set using Bernoulli probabilities for each event
+
+OR you can compare different models to a data set using pooled binomial probabilities
+
+BUT you can’t compare one model fit using Bernoulli probabilities to another fit using binomial probabilities
+
+… in this last case the data are different because one data set is ordered (we know which walks included butterflies) and the other data set is unordered (we know we saw a butterfly on, say 2/10 walks, but we don’t know which ones they were…
+
+
+## Binomial distribution in R
+
+In R, you can get the probability of data given a binomial model using the function `dbinom()`
+```
+dbinom(x, size, prob, log)
+```
+where
+
+- `x` = # events, k
+- `size` = # trails, N
+- `prob` = probability of an event in a single trial, p
+- `log = TRUE` or `FALSE` … do you want the log of the probability, or the probability?
+
+# Worked example:  Anne’s calypso orchids…
+
+## Load a few convenience packages
+
+```{r}
+library(here) #reproducible file paths
+library(readr) #'safer' version of read.csv()
+```
+
+## Read in data
+
+```{r}
+orchids <- read_csv(here("data", "orchid.seedlings.csv"))
+head(orchids)
+```
+
+We want to know the number of seedlings in year 0 (`seedlings.0`) as a function of seeds in year -1, -2, -3, or -4.
+
+Seedlings in year 0 is our `x` ($k$), or number of events.  Our size, $N$, is how many seeds we think we started out with, depending on the lag (of 1, 2, 3, or 4 years). 
+We can use the binomial distribution here to calculate the probability of the data, given an arbitrary model. 
+Here our "model" has two parts: 
+
+1. our hypothesis about the lag, i.e., how many years
+2. our binomial probability of seeds per seedling
+
+## Take the case where the lag is 4, and prob = 0.05
+
+`dbinom(x, size, prob, log=F)`
+
+```{r}
+lnprob_m1 = dbinom(x = orchids$seedlings.0, size = orchids$seeds.m4, prob = 0.05, log = TRUE)
+lnprob_m1 # show the list of probabilities for each observation, given the model
+sum(lnprob_m1) # log-likelihood of the whole data set
+```
+
+
+## Compare to a lag of 4 and seeds per seedling of 0.04
+
+```{r}
+lnprob_m2 = dbinom(x = orchids$seedlings.0, size = orchids$seeds.m4, prob = 0.04, log = TRUE)
+lnprob_m2 # show the list of probabilities of each observation, given the model
+sum(lnprob_m2) # log-likelihood of the whole data set
+```
+
+## Compare to a lag of 3 and seeds per seedling of 0.05
+
+```{r}
+lnprob_m3 = dbinom(x = orchids$seedlings.0, size = orchids$seeds.m3, prob = 0.05, log = TRUE)
+lnprob_m3 # show the list of probabilities of each observation, given the model
+sum(lnprob_m3) # log-likelihood of the whole data set
+```
+
+We could do this for the entire parameter space of binomial probabilities and lags, but this is inefficient.  Next lab you will learn to write for loops that can do this kind of thing with less code.
+
+
+# More facts about binomial distribution
+
+mean, variance, etc goes here
