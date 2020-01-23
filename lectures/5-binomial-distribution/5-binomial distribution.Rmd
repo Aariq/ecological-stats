@@ -29,6 +29,7 @@ $$
 
 Where *X* is the random variable (outcome) and *p* is probability of success and "~" is read as "distributed as".
 
+
 ## Binomial distribution
 
 What if we have more than one trial?
@@ -83,7 +84,7 @@ plot_data1 <- tibble(x = 0:N,
                      y = dbinom(x, size = N, prob = p_success))
 
 ggplot(plot_data1, aes(x,y)) +
-  geom_col() +
+  geom_col(color = "#449F8E", fill = "#449F8E") +
   labs(title = glue("binomial distribution for {N} trials, P(event) = {p_success}"),
        x = "# events",
        y = "probability")
@@ -144,6 +145,9 @@ $$
 $$
 = (p^1(1-p)^{2-1}){2 \choose 1} = 2p(1-p)
 $$
+Can substitute various values of p to see which are the most likely to give us one event out of 2 trials.
+
+
 ASIDE: The equation for the Binomial distribution shows its similarity to the Bernoulli distribution.  The *probability* of getting k successes differs between ordered (Bernoulli) and unordered (Binomial) data sets, but the *likelihood* is effectively the same because it differs by a constant, specifically N-choose-k.  This falls out in the wash with the mysterious “arbitrary constants”.
 
 SO: you can compare different models to a data set using Bernoulli probabilities for each event
@@ -167,6 +171,56 @@ where
 - `size` = # trails, N
 - `prob` = probability of an event in a single trial, p
 - `log = TRUE` or `FALSE` … do you want the log of the probability, or the probability?
+
+## Use R to calculate likelihood
+
+Because probability of the data (output from `dbinom()`) is proportional to likelihood, we can calculate a likelihood profile in R.
+
+```{r}
+df <- tibble(p = seq(0.01, 0.99, length.out = 20),
+             loglik = dbinom(x = 1, size = 2, prob = p, log = TRUE))
+
+ggplot(df, aes(x = p, y = loglik)) +
+  geom_line() +
+  geom_hline(aes(yintercept = max(loglik)), color = "red") +
+  labs(x = "value of p", y = "log-likelihood")
+```
+
+The **maximum likelihood estimate** is the value where the slope of the line is zero: its the parameter values that maximize likelihood of the data, given the parameters.  Here, it's p = 0.5 for the probability of getting 1 success in 2 trials.
+
+## True Facts about binomial distribution
+
+- the average (or expected) number of events, $k$, for $N$ trials and probabilty $p$ is $Np$
+- The variance among the number of events of multiple sets of $N$ trials is $Np(1-p)$.
+- The maximum likelihood estimate (MLE) of $p$ for a dataset with $N$ trials and $k$ events is $k/N$
+
+```{r}
+library(latex2exp)
+p_success <- 0.3
+N <- 30
+
+mu = N * p_success
+var = N * p_success * (1-p_success)
+sd = sqrt(var)
+
+plot_data1 <- tibble(x = 0:N,
+                     y = dbinom(x, size = N, prob = p_success))
+ggplot(plot_data1, aes(x,y)) +
+  geom_col(color = "#449F8E", fill = "#449F8E") +
+  geom_vline(aes(xintercept = mu), color = "red") +
+  geom_segment(aes(y = mean(y), yend = mean(y), x = mu - sd, xend = mu + sd), color = "red") +
+  labs(title = glue("Binomial distribution for N = {N} trials, p = {p_success}"),
+       x = "# events",
+       y = "probability",
+       subtitle = TeX(glue("$\\mu = {mu}$; $\\sigma ^2 = {var}$; $\\sigma = {round(sd, 2)}$")))
+```
+
+
+## Ecological significance
+
+- For binomial processes (e.g. survival), the variance in the number of events is a function of the number of trials and probability (p).  Variance is **not** a free parameter (the way it is in the Normal distribution).
+- If a process is probabilistic, we expect variation in the outcome of some number of trials, N (even if we take very precise measurements, and know p very precisely, we cannot predict the outcome of any particular set of trials)
+- You can use the “null” binomial variance as a basis for estimating other sources of variation, such as differences among years, sites, or individual animals or plants
 
 # Worked example:  Anne’s calypso orchids…
 
@@ -223,6 +277,3 @@ sum(lnprob_m3) # log-likelihood of the whole data set
 We could do this for the entire parameter space of binomial probabilities and lags, but this is inefficient.  Next lab you will learn to write for loops that can do this kind of thing with less code.
 
 
-# More facts about binomial distribution
-
-mean, variance, etc goes here
