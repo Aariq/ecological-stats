@@ -1,0 +1,289 @@
+---
+title: "Demographic Stochasticity"
+author: "Eric Scott"
+date: "2/17/2020"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+
+```
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+source(here("plot_theme.R"))
+library(patchwork)
+```
+
+# Bank Swallows
+
+I misinterpreted the data!
+
+- A "colony" is an entire area with many burrows.  Colonies can be 10s -- 1000s of individuals.
+- An "extinct" colony is an area of river bank that becomes completely uninhabited the following year.
+
+
+# Group living
+
+Advantages of group living:
+
+	- Cooperation (avoid predators)
+	- Lower probability of stochastic extinction
+
+Possible costs of group living:
+
+	- Faster accumulation of parasites in large colonies
+	- More conspicuous to predators
+
+# Possible causes of extinction
+
+1. Demographic stochasticity
+    - Fluctuations in the number of organisms that occurr due to sampling error (random chance) alone.
+    - If populations are small, this can be very serious
+    
+2. Colonies degrade over time
+    - e.g. buildup of parasites
+    
+3. Colonies washed out by floods
+
+4. Other changes in land use
+
+# Demographic stochasticity model
+
+A Binomial distribution predicts probabiloity of extinction by chance alone
+
+Assume "event" ($k$) is failure of one burrow, with probability $p$.
+
+"Extinction" is failure of all burrows in a colony ($k = N$)
+
+
+# Demographic stochasticity model
+
+Probability of an entire colony going extinct  = probability that $k = N$, where $N$ is the number of burrows in a colony.
+
+Recal: $P(k|N, p) = p^k(1-p)^{N-k}{N \choose k}$
+
+When $k = N$... 
+
+- $(1-p)^{N-k} = (1-p) ^0 = 1$
+- ${N \choose k} = 1$
+- and $p^k = p^N$
+
+So, the probability of extinction due to demographic stochasticity = $p^N$
+
+It's the probability that one burrow fails, AND the next one, AND the next one...
+
+# Linearizing effect of link functions
+
+A link function turns a non-linear problem into a linear one, which makes it easier to solve.
+
+```{r echo=FALSE, fig.width=7}
+df <- tibble(N = rep(1:100, 6),
+              p1 = rep(c(0.4, 0.6, 0.8, 0.9, 0.95, 0.97), each = 100),
+              P_extinct = dbinom(N, N, p1),
+              logit_P = qlogis(P_extinct))
+df1 <- filter(df, p1 == 0.8)
+ggplot(df1, aes(x = N, y = P_extinct)) +
+  geom_line() +
+  labs(x = "colony size (# burrows)", y = "probability of extinction") +
+  theme(text = element_text(size = 14)) +
+
+ggplot(df1, aes(x = N, y = logit_P)) +
+  geom_line() +
+  labs(x = "colony size (# burrows)", y = "logit(probability of extinction)") +
+  theme(text = element_text(size = 14)) +
+  
+  plot_annotation(title = "Probability of colony extinction by demographic \n stochasticity alone",
+                  subtitle = "p(event) = 0.8")
+```
+
+# Linearizing effect
+
+The relationship between extinction probability and colony size remains linear across a range of values for p(event).
+
+```{r echo=FALSE, fig.width=7}
+ggplot(df, aes(x = N, y = P_extinct, color = as.factor(p1))) +
+  geom_line() +
+  scale_color_discrete("p(event)") +
+  labs(x = "colony size (# burrows)", y = "probability of extinction") +
+  theme(text = element_text(size = 14)) +
+
+ggplot(df, aes(x = N, y = logit_P, color = as.factor(p1))) +
+  geom_line() +
+  scale_color_discrete("p(event)") +
+  labs(x = "colony size (# burrows)", y = "logit(probability of extinction)") +
+  theme(text = element_text(size = 14)) +
+  plot_layout(guides = "collect")
+```
+
+# Is colony extinction stochastic or related to colony size?
+
+Stochastic vs. related to effects of group living
+
+Different form of this dataset...
+
+```{r message=FALSE, warning=FALSE}
+birds2 <- read_csv(here("data", "BankSwallows2.csv"))
+head(birds2)
+```
+
+Each row is a colony, with the number of burrows (holes) and column for extinction.  1 = went extinct, 0 = didn't go extinct.
+
+# Demographic stochasticity model, "manually"
+
+```{r}
+head(birds2, 4)
+```
+
+For the first 3 rows, the log probability of extinction, $p^N$ for an arbitrary $p(event)$ of 0.9 is
+
+```{r}
+dbinom(x = 40, size = 40, prob = 0.9, log = TRUE)
+#OR
+log(0.9^40)
+
+dbinom(30, 30, 0.9, log = TRUE)
+dbinom(260, 260, 0.9, log = TRUE)
+```
+
+in row 4, the colony did not go extinct, so probability for that row is 1 - P(extinct|p = 0.9)
+
+```{r}
+log(1 - dbinom(70, 70, 0.9, log = FALSE))
+```
+
+Do this for all rows of data and add log-probabilities to get a log-likelihood for the model.  Then, do this for many values of $p(event)$ and find its MLE.
+
+# Demographic stochasticity model, "manually"
+
+We could then use likelihood profiling to find the MLE for $p(event)$
+
+```{r}
+try.probs <- seq(0.0001,0.9999,0.0001) #extinction probabilities
+out <- tibble(try.probs, logliks = NA)
+ext.cols <- birds2$ext
+not.cols <- 1-birds2$ext
+
+for(i in 1:length(try.probs)) {
+  #here k and N are the same because for extinction there have to be as many events as trials
+  ext.prob <- dbinom(birds2$num.burrows, birds2$num.burrows, try.probs[i],
+                     log = TRUE) * ext.cols
+  not.prob <- log(1 - dbinom(birds2$num.burrows, birds2$num.burrows, try.probs[i],
+                             log = FALSE)) * not.cols
+  out$logliks[i] <- sum(ext.prob) + sum(not.prob)
+}
+
+#MLE and associated log-likelihood:
+mle <- out %>% filter(logliks == max(logliks))
+mle
+
+#AIC of demographic stochasticity model
+-2*(mle$logliks -2) 
+```
+
+# Likelihood profiles
+
+```{r fig.width=7}
+out <- out %>% mutate(logit_p = qlogis(try.probs))
+ggplot(out, aes(x = try.probs, y = logliks)) +
+  geom_line() + 
+  labs(x = "p(burrow failure)", y = "log-likelihood") +
+
+ggplot(out, aes(x = logit_p, y = logliks)) +
+  geom_line() + 
+  labs(x = "logit[p(burrow failure)]", y = "log-likelihood")
+```
+
+```{r fig.width=7}
+ggplot(out, aes(x = try.probs, y = logliks)) +
+  geom_line() + 
+  geom_vline(xintercept = mle$try.probs, color = "red") +
+  labs(x = "p(burrow failure)", y = "log-likelihood") +
+  xlim(0.99, 0.9999) +
+  ylim(-150, -50) +
+
+ggplot(out, aes(x = logit_p, y = logliks)) +
+  geom_line() + 
+  geom_vline(xintercept = qlogis(mle$try.probs), color = "red") +
+  labs(x = "logit[p(burrow failure)]", y = "log-likelihood") +
+  xlim(qlogis(0.99), qlogis(0.9999)) +
+  ylim(-150, -50)
+```
+
+
+# Demographic Stochasticity only: results
+
+MLE of p(burrow failure) for a demographic stochasticity only model is 0.9984.
+
+That means an extrodinarily high rate of burrow failure is needed to explain the data under this model.
+
+Log-likelihood = -59.85
+
+```{r}
+df2 <- tibble(N = 1:max(birds2$num.burrows),
+              p1 = mle$try.probs,
+              P_extinct = dbinom(N, N, p1),
+              logit_P = qlogis(P_extinct))
+ggplot(df2, aes(x = N, y = P_extinct)) +
+  geom_line() +
+  labs(x = "colony size (# burrows)", y = "probability of extinction") +
+  theme(text = element_text(size = 14))
+```
+
+# Extinction varies with colony size
+
+Use a GLM to model a linear (on logit scale) relationship between extinction probability and colony size.
+
+```{r}
+birds2_plot <- ggplot(birds2, aes(x = num.burrows, y = ext)) + geom_point(size = 3, alpha = 0.5) +
+  labs(x = "colony size (# burrows)",
+       y = "extinct?")
+birds2_plot
+```
+
+# Generalized linear model
+
+```{r}
+# two equivalent ways to write the glm
+m1 <- glm(cbind(ext, 1-ext) ~ num.burrows, family = binomial(link = "logit"), data = birds2)
+m1 <- glm(ext ~ num.burrows, family = binomial, data = birds2)
+```
+
+The expected probability of extinction is a function of the number of burrows in a colony.  The function is logit-linear
+
+$$
+\textrm{E}[logit(\frac{k}{N})] = \beta_0 + \beta_1 \times \textrm{num.burrows}
+$$
+
+```{r}
+coef(m1)
+```
+
+
+$$
+\textrm{E}[logit(\frac{k}{N})] = 0.8983 - 0.0014 \times \textrm{num.burrows}
+$$
+
+# Fit a line
+
+Use predicted intercept and slope to fit a line.  Remember, we have to do calculations **first**, then back-transform
+
+```{r}
+pred <- tibble(
+  xvals = 0:2000, # predict p(extinct) over a range of x values
+  logit_yvals = coef(m1)[1] + coef(m1)[2] * xvals, #expected value on logit scale
+  yvals = plogis(logit_yvals) #backtransform
+)
+```
+```{r}
+ggplot(pred, aes(x = xvals, y = logit_yvals)) + geom_line(color = "red") + labs(x = "colony size (# burrows)", y = "logit[P(extinct)]")
+```
+```{r}
+birds2_plot + geom_line(data = pred, aes(x = xvals, y = yvals), color = "red") + labs(y = "P(extinct)")
+```
+
+# Compare models
+
+For more slide see lee's slides
