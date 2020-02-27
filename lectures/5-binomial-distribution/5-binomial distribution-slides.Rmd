@@ -1,9 +1,10 @@
 ---
 title: "Binomial Probability Distribution"
 author: "Eric Scott"
-date: "2020-01-30"
+date: "2020-01-28"
+output:
   powerpoint_presentation:
-    reference_doc: template.pptx
+    reference_doc: "template.pptx"
 ---
 
 ```{r setup, include=FALSE}
@@ -13,6 +14,30 @@ library(here)
 source(here("plot_theme.R"))
 ```
 
+## Questions from last time:
+
+### Why does the similarity between Likelihood and P(model|data) break down with informative priors?
+- For likelihood, *k* is the same for all models, as long as fit to the same data
+
+$$
+L(model_1|data) = P(data|model_1)\times k
+$$
+$$
+L(model_2|data) = P(data|model_2)\times k
+$$
+
+- Bayes' Theorum resembles likelihood when priors are uniform because P(data) and P(model) are also the same for all models.  P(model)/P(data) -> *k*
+
+$$
+P(model_1|data) = \frac{P(data|model_1)P(model_1)}{P(data)}
+$$
+But when P(model1) ≠ P(model2), then P(model)/P(data) is no longer the same for all models
+
+## Questions from last time:
+
+### Where does P(data) come from?
+
+- reproduce figure from [https://www.probabilisticworld.com/anatomy-bayes-theorem/]
 
 ## Probabilty distributions
 
@@ -27,7 +52,7 @@ df <- tibble(x = c("lives", "dies"), y = c(0.8, 1-0.8))
 ggplot(df, aes(x = x, y = y)) +
   geom_col() +
   ylim(0,1) +
-  labs(x = "X", y = "P(n)", title = "p(success) = 0.6")
+  labs(x = "", y = "P(n)", title = "p(success) = 0.8")
 ```
 
 We write the distribution as:
@@ -64,13 +89,13 @@ Example: All possible outcomes from 2 trials (with independent events), and prob
 |       0|       1|	
 |       0|       0|	
 
-So there’s only **ONE** possibility where you see two butterflies, only **ONE** possibility that you see no butterflies, but **TWO** that get one butterflies, one not. 
+So there’s only **ONE** possibility where you see two butterflies, only **ONE** possibility that you see no butterflies, but **TWO** ways to see one butterfly. 
 
 Thus:
 
-- $Pr \lbrace k=2|N=2, p\rbrace = p^2$ (walk 1 AND walk 2)
-- $Pr\lbrace k=0|N=2, p \rbrace = (1-p)^2$ (not walk 1 AND not walk 2)
-- $Pr\lbrace k=1|N=2, p\rbrace = p(1-p) + (1-p)p = 2p(1-p)$	(walk 1 AND not walk 2 OR walk 2 AND not walk 1)
+- Pr{k=2|N=2, p} = p^2^ (walk 1 AND walk 2)
+- Pr{k=0|N=2, p} = (1-p)^2^ (not walk 1 AND not walk 2)
+- Pr{k=1|N=2, p} = p(1-p) + (1-p)p = 2p(1-p)	(walk 1 AND not walk 2 OR walk 2 AND not walk 1)
 
 (Axiom #1 – mutually exclusive events)
 
@@ -127,9 +152,10 @@ Walking through this equation:
 
 - ${n \choose k}$ = the number of ways you can get k events in N trials 
 
+
 **Show how this simplifies in our example with two walks.**
 
-### N choose k
+## N choose k
 
 to understand the meaning of “the number of ways you can get k events in N trials”, write out all possibilities.
 
@@ -170,21 +196,10 @@ $$
 $$
 Can substitute various values of p to see which are the most likely to give us one event out of 2 trials.
 
-
-ASIDE: The equation for the Binomial distribution shows its similarity to the Bernoulli distribution.  The *probability* of getting k successes differs between ordered (Bernoulli) and unordered (Binomial) data sets, but the *likelihood* is effectively the same because it differs by a constant, specifically N-choose-k.  This falls out in the wash with the mysterious “arbitrary constants”.
-
-SO: you can compare different models to a data set using Bernoulli probabilities for each event
-
-OR you can compare different models to a data set using pooled binomial probabilities
-
-BUT you can’t compare one model fit using Bernoulli probabilities to another fit using binomial probabilities
-
-… in this last case the data are different because one data set is ordered (we know which walks included butterflies) and the other data set is unordered (we know we saw a butterfly on, say 2/10 walks, but we don’t know which ones they were…
-
-
 ## Binomial distribution in R
 
 In R, you can get the probability of data given a binomial model using the function `dbinom()`
+
 ```
 dbinom(x, size, prob, log)
 ```
@@ -197,16 +212,16 @@ where
 
 ## Use R to calculate likelihood
 
-Because probability of the data (output from `dbinom()`) is proportional to likelihood, we can calculate a likelihood profile in R.
+Because probability of the data (output from `dbinom()`) is proportional to likelihood, we can calculate a likelihood *profile* in R.
 
-```{r}
+```{r echo=FALSE}
 df <- tibble(p = seq(0.01, 0.99, length.out = 20),
              loglik = dbinom(x = 1, size = 2, prob = p, log = TRUE))
 
 ggplot(df, aes(x = p, y = loglik)) +
   geom_line() +
   geom_hline(aes(yintercept = max(loglik)), color = "red") +
-  labs(x = "value of p", y = "log-likelihood")
+  labs(x = "value of p", y = "log-likelihood", title = "Likelihood profile for binomial with N = 2, k = 1")
 ```
 
 The **maximum likelihood estimate** is the value where the slope of the line is zero: its the parameter values that maximize likelihood of the data, given the parameters.  Here, it's p = 0.5 for the probability of getting 1 success in 2 trials.
@@ -214,10 +229,13 @@ The **maximum likelihood estimate** is the value where the slope of the line is 
 ## True Facts about binomial distribution
 
 - the average (or expected) number of events, $k$, for $N$ trials and probabilty $p$ is $Np$
+- $\mu = Np$
 - The variance among the number of events of multiple sets of $N$ trials is $Np(1-p)$.
+- $\sigma^2 = Np(1-p)$
+- Standard deviation = $\sigma = \sqrt{Np(1-p)}$
 - The maximum likelihood estimate (MLE) of $p$ for a dataset with $N$ trials and $k$ events is $k/N$
 
-```{r}
+```{r echo=FALSE}
 library(latex2exp)
 p_success <- 0.3
 N <- 30
@@ -237,7 +255,26 @@ ggplot(plot_data1, aes(x,y)) +
        y = "probability",
        subtitle = TeX(glue("$\\mu = {mu}$; $\\sigma ^2 = {var}$; $\\sigma = {round(sd, 2)}$")))
 ```
+```{r echo=FALSE}
+library(latex2exp)
+p_success <- 0.7
+N <- 15
 
+mu = N * p_success
+var = N * p_success * (1-p_success)
+sd = sqrt(var)
+
+plot_data1 <- tibble(x = 0:N,
+                     y = dbinom(x, size = N, prob = p_success))
+ggplot(plot_data1, aes(x,y)) +
+  geom_col(color = "#449F8E", fill = "#449F8E") +
+  geom_vline(aes(xintercept = mu), color = "red") +
+  geom_segment(aes(y = mean(y), yend = mean(y), x = mu - sd, xend = mu + sd), color = "red") +
+  labs(title = glue("Binomial distribution for N = {N} trials, p = {p_success}"),
+       x = "# events",
+       y = "probability",
+       subtitle = TeX(glue("$\\mu = {mu}$; $\\sigma ^2 = {var}$; $\\sigma = {round(sd, 2)}$")))
+```
 
 ## Ecological significance
 
@@ -249,26 +286,28 @@ ggplot(plot_data1, aes(x,y)) +
 
 ## Load a few convenience packages
 
-```{r}
+```{r include=FALSE}
 library(here) #reproducible file paths
 library(readr) #'safer' version of read.csv()
 ```
 
 ## Read in data
 
-```{r}
+```{r include=FALSE}
 orchids <- read_csv(here("data", "orchid.seedlings.csv"))
 head(orchids)
 ```
 
 We want to know the number of seedlings in year 0 (`seedlings.0`) as a function of seeds in year -1, -2, -3, or -4.
 
-Seedlings in year 0 is our `x` ($k$), or number of events.  Our size, $N$, is how many seeds we think we started out with, depending on the lag (of 1, 2, 3, or 4 years). 
-We can use the binomial distribution here to calculate the probability of the data, given an arbitrary model. 
+- Seedlings in year 0 is our `x` (*k*), or number of events.  
+- Our size, *N*, is how many seeds we think we started out with, depending on the lag (of 1, 2, 3, or 4 years). 
+- Calculate the probability of the data with binomial distribution (given a model). 
+
 Here our "model" has two parts: 
 
-1. our hypothesis about the lag, i.e., how many years
-2. our binomial probability of seeds per seedling
+1. our hypothesis about the lag, i.e., how many years (influences N)
+2. our binomial probability of a seed resulting in a seedling (p)
 
 ## Take the case where the lag is 4, and prob = 0.05
 

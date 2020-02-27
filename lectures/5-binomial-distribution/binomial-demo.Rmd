@@ -1,0 +1,103 @@
+---
+title: "Binomial Distribution Demos"
+output: html_notebook
+---
+
+# load packages
+
+```{r}
+library(tidyverse)
+library(glue) #lets you put variables into strings with {}.  Alternative to paste()
+```
+
+# dbinom demonstration
+
+Whats the probability of rolling a "6" 3 times out of 10 dice rolls?
+
+```{r}
+k <- 3
+N <- 10
+p <- 1/6
+  
+dbinom(x = k, size = N, prob = p, log = TRUE)
+```
+
+
+# Plotting the distribution
+
+```{r}
+ks <- 0:N #distribution = probability of all possible outcomes
+
+#make a dataframe to plot k on the x-axis and probability on the y-axis
+plot_data <- tibble(x = ks, y = dbinom(ks, size = N, prob = p))
+
+ggplot(plot_data, aes(x, y)) +
+  geom_col(color = "darkgreen", fill = "darkgreen") +
+  labs(title = glue("binomial distribution for N = {N}, p = {p}"),
+       x = "# events",
+       y = "probability")
+```
+
+# With orchid dataset
+
+## Read in data
+
+```{r}
+library(here)
+orchids <- read_csv(here("data", "orchid.seedlings.csv"))
+head(orchids)
+```
+
+We want to know the number of seedlings in year 0 (`seedlings.0`) as a function of seeds in year -1, -2, -3, or -4.
+
+- Seedlings in year 0 is our `x` (*k*), or number of events.  
+- Our size, *N*, is how many seeds we think we started out with, depending on the lag (of 1, 2, 3, or 4 years). 
+- Calculate the probability of the data with binomial distribution (given a model). 
+
+Here our "model" has two parts: 
+
+1. our hypothesis about the lag, i.e., how many years (influences N)
+2. our binomial probability of a seed resulting in a seedling (p)
+
+## Take the case where the lag is 4, and prob = 0.05
+
+```{r}
+lnprob_m1 = dbinom(x = orchids$seedlings.0, size = orchids$seeds.m4, prob = 0.05, log = TRUE)
+lnprob_m1 # show the list of probabilities for each observation, given the model
+sum(lnprob_m1) # log-likelihood of the whole data set
+```
+
+## Compare to a lag of 4 and seeds per seedling of 0.04
+
+```{r}
+lnprob_m2 = dbinom(x = orchids$seedlings.0, size = orchids$seeds.m4, prob = 0.04, log = TRUE)
+lnprob_m2 # show the list of probabilities of each observation, given the model
+sum(lnprob_m2) # log-likelihood of the whole data set
+```
+
+## Compare to a lag of 3 and seeds per seedling of 0.05
+
+```{r}
+lnprob_m3 = dbinom(x = orchids$seedlings.0, size = orchids$seeds.m3, prob = 0.05, log = TRUE)
+lnprob_m3 # show the list of probabilities of each observation, given the model
+sum(lnprob_m3) # log-likelihood of the whole data set
+```
+
+We could do this for the entire parameter space of binomial probabilities and lags, but this is inefficient.  Next lab you will learn to write for loops that can do this kind of thing with less code.
+
+
+# Using GLM
+
+```{r}
+success <- 10
+failure <- 30 - success
+mydat <- cbind(success, failure)  # successes and failures, i.e., k and N-k
+
+glm(mydat ~ 1, family = binomial(link = "identity"))# function  to estimate parameters
+
+m1 <- glm(mydat ~ 1, family = binomial(link = "identity")) # need to save the analysis as an object to see results
+
+logLik(m1) # extract the log likelihood, evaluated at MLE
+coef(m1) # extract the maximum likelihood estimates of the coefficients
+```
+
