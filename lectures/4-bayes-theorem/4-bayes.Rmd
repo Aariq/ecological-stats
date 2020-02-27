@@ -18,7 +18,7 @@ library(patchwork)
 ## Bayes' Theorem Continued
 
 $$
-P(B│A)=  \frac{(P(A│B)P(B))}{(P(A))} → P(model│data) = \frac{(P(data│model)P(model))}{(P(data))}
+P(B│A)=  \frac{(P(A│B)P(B))}{(P(A))} \Rightarrow P(model│data) = \frac{(P(data│model)P(model))}{(P(data))}
 $$
 
 Back to the perennial flower example...
@@ -73,7 +73,7 @@ df_un
 lik_un <- ggplot(df_un, aes(x = `survival probability`, y = `P(data|model)`)) +
   geom_point(color = "orange") +
   geom_line(color = "orange") +
-  theme_bio133 +
+  
   labs(title = "Probability of data given model")
 ```
 
@@ -81,7 +81,7 @@ lik_un <- ggplot(df_un, aes(x = `survival probability`, y = `P(data|model)`)) +
 prior_un <- ggplot(df_un, aes(x = `survival probability`, y = `P(model)`)) +
     geom_point(color = "blue") +
   geom_line(color = "blue") +
-  theme_bio133 +
+  
   labs(title = "uninformative prior")
 ```
 
@@ -89,7 +89,7 @@ prior_un <- ggplot(df_un, aes(x = `survival probability`, y = `P(model)`)) +
 prob_un <- ggplot(df_un, aes(x = `survival probability`, y = `P(model|data)`)) +
   geom_point(color = "green") +
   geom_line(color = "green") +
-  theme_bio133 +
+  
   labs(title = "probability of model given data")
 ```
 
@@ -101,11 +101,12 @@ prob_un
 ```
 
 ## Bayes' theorem with informative prior
+
 ```{r}
-df_un %>% 
+df_un
 ```
 
-## Protocorm thing
+## Protocorm problem
 
 ```{r}
 p_model1 = 1.3*10^-9
@@ -119,3 +120,11 @@ tibble(p_model, p_data_model) %>%
 ```
 
 Now model 4 has a lower log-likelihood
+
+```{r}
+exp(-67.5)
+sum(
+  exp(-121.1), exp(-124.5), exp(-86.8)
+)
+```
+
