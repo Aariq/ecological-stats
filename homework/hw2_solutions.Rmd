@@ -1,13 +1,31 @@
 ---
-title: "hw2_solution"
+title: "BIO 133 Homework 2 Solutions"
 author: "Eric Scott"
-date: "1/22/2020"
-output: pdf_document
+date: '2020-02-05'
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+# General feedback
+
+### rounding
+
+- don't round until the end 
+- should feel comfortable using R as a calculator
+
+### likelihood
+
+- P(data|model) = L(model|data) 
+- For a binomial process, this is the output of `dbinom()` OR `logLik(glm(cbind(success, failures) ~ 1, family = binomial(link = "identity)))`
+- Bernouli probablities are not the same as binomial probabilities because Bernouli is events in a particular order!  Remember that ${N \choose k}$ is in the binomial probability equation!
+- Likelihood ratio and posterior probability ratio should be the same when priors are uninformative.
+
+
 
 # 1 Probability for two models
 
@@ -33,11 +51,35 @@ pmodels
 
 ```{r}
 binProb[2] / binProb[1]
+
+pmodels[2] / pmodels[1]
 ```
 
 Model 2 is about 2.7x more likely than model 1
 
+OR
+
+```{r}
+binProb[1] / binProb[2]
+```
+
+LR and probability ratio are the same. 
+
 # 4 What would Nate's prior need to be to make model 1 more likely?
+
+$$
+P(model_1|data) = \frac{P(data|model_1)P(model_1)}{P(data)}
+$$
+
+$$
+P(model_1|data) = \frac{P(data|model_1)P(model_1)}{P(data|model_1)P(model_1) + P(data|model_2)P(model_2)}
+$$
+
+1. Set P(model1) to x and P(model2) to 1-x
+2. Set P(model1 | data) to 0.5
+3. Remember that $P(data) = P(data|model_1)x + P(data|model_2)(1-x)$
+3. Solve for x
+
 
 Nate believes the P(heads) = 0.5
 
@@ -48,16 +90,23 @@ P(model1) = x
 P(model2) = 1-x because we are assuming there are only 2 possible models
 
 P(data|model1) = 0.02079869
+P(data|model2) = 0.05663140
 
 P(data) = 0.02079869x + 0.05663140(1-x)
 
 0.5 = 0.02079869x/(0.02079869x + 0.05663140(1-x))  
+
 0.5 = 0.02079869x/(0.02079869x + 0.05663140 - 0.05663140x)  
-0.5 = 0.02079869x/(0.02079869x + 0.05663140 - 0.05663140x)  
+
 0.5 = 0.02079869x/0.05663140 - 0.03583271x  
+
 0.5(0.05663140 - 0.03583271x) = 0.02079869x  
+
 0.0283157 - 0.01791635x = 0.02079869x  
+
 0.0283157 = 0.03871504x  
+
 x = 0.7313876
 
 
+A numerical solution using a for-loop (for example) would also have been OK

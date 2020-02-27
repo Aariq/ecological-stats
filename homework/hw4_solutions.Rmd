@@ -1,0 +1,198 @@
+---
+title: "HW4 solutions"
+author: "Eric Scott"
+date: "2/11/2020"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# load packages
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+library(lmtest) #for lrtest()
+library(bbmle) #for Ictab()
+```
+
+# Load data
+
+```{r message=FALSE, warning=FALSE}
+mice <- tibble(site = 1:6,
+               status = c("burn", "unburn", "burn", "unburn", "unburn", "unburn"),
+               fleas = c(7, 1, 9, 7, 8, 3),
+               nofleas = c(16, 3, 22, 3, 1, 2))
+
+galls <- read_csv(here("data", "goldenrod_galls.csv"))
+
+plant <-
+  tibble(year = 1988:2007, 
+         dead = c(4, 10, 7, 28, 2, 9, 7, 22, 13, 9, 10, 58, 7, 5, 8, 11, 2, 17, 13, 15),
+         alive = c(96, 90, 93, 72, 98, 91, 93, 78, 87, 91, 90, 42, 93, 95, 92, 89, 98, 83, 87, 85))
+```
+
+# 1. Mice and fleas
+
+## a. Fit 3 models
+
+### Model 1: intercept only
+
+```{r}
+mice1 <- glm(cbind(fleas, nofleas) ~ 1, family = binomial(), data = mice)
+coef(mice1) %>% plogis()
+```
+
+42.7% of mice had fleas
+
+### Model 2: effect of burning treatment
+
+```{r}
+mice2 <- glm(cbind(fleas, nofleas) ~  -1+status, family = binomial(), data = mice)
+coef(mice2) %>% plogis()
+AIC(mice2)
+```
+
+29.6% of mice at burned sites and 67.9% of mice at unburned sites had fleas
+
+### Model 3: differences among sites
+
+```{r}
+# `-1+` is important! otherwise, glm will fit a line
+mice3 <- glm(cbind(fleas, nofleas) ~ -1 + as.factor(site), 
+             family = binomial(), data = mice)
+coef(mice3) %>% plogis()
+```
+
+
+## b. AIC
+
+```{r}
+AIC(mice1, mice2, mice3)
+```
+
+Model 2 wins because it has the lowest AIC
+
+## c. LRT
+
+```{r}
+lrtest(mice1, mice3)
+```
+
+Model 3 is significantly better than model 1
+
+```{r}
+lrtest(mice1, mice2)
+```
+
+Model 2 is significantly better than model 1
+
+```{r}
+lrtest(mice2, mice3)
+```
+
+model 3 is not significantly different from model 2 (yes, they are nested.  Coefficients for each site *could* turn out to perfectly match burn status).  Note: you **cannot** compare p-values between likelihood ratio tests and interpret that as relative support for one model over another.
+
+# 2. Goldenrod ball galls
+
+
+## a. MLE proportion of successful galling events for the entire dataset
+
+```{r}
+m1 <- glm(cbind(galls, punctures - galls) ~ 1, family = binomial(), data = galls)
+coef(m1) %>% plogis()
+```
+
+MLE of galling success rate is 0.18
+
+## b. Compare three models:
+
+1. the model you fit above in part a,
+2. separate galling rates for fertilized and unfertilized plants
+3. model that estimates different galling rates by clone.
+
+```{r}
+m2 <- glm(cbind(galls, punctures - galls) ~ -1+fertilized, family = binomial(), data = galls)
+m3 <- glm(cbind(galls, punctures - galls) ~ -1+as.factor(clone), family = binomial(), data = galls)
+
+AIC(m1, m2, m3)
+```
+
+Model 3, differences by clone, wins!
+
+## c. Confidence intervals
+
+For the third model, the one that estimates different rates for each clone, get the MLE galling success on each clone along with confidence intervals. Give an explanation for the 95% confidence interval for clone #5
+
+```{r warning=FALSE}
+coef(m3) %>% plogis()
+confint(m3) %>% plogis()
+```
+
+Because there were no successful galls for clone 5, it's impossible to estimate a probability of galling.  This is why the 95% CI spans the entire range of possibilities from 0 to 1.
+
+
+# 3. Bitterroot milkvetch.
+
+## a. Make a plot of survival probability over time.
+
+```{r}
+p1 <- ggplot(plant, aes(x = year, y = alive/(alive + dead))) +
+  geom_point() +
+  geom_line() +
+  labs(y = "survival probability")
+p1
+```
+
+## b. GLM for linear change in survial probability over time.  
+
+Use the coefficients of that model to write the equation for the line.
+
+```{r}
+m1 <- glm(cbind(alive, dead) ~ year, family = binomial(link = "identity"), data = plant)
+coef(m1)
+```
+
+$$
+\frac{k}{N} = 4.5089 -0.00182 \times year 
+$$
+
+Alternatively, if you used the logit link:
+
+```{r}
+m1a <- glm(cbind(alive, dead) ~ year, family = binomial(link = "logit"), data = plant)
+coef(m1a)
+```
+
+$$
+\textrm{logit}(\frac{k}{N}) = 29.98 - 0.014 \times year
+$$
+
+## c. Add the fit line
+
+Add the fit line to the plot using the `predict()` function
+
+```{r}
+p1 + geom_line(aes(y = predict(m1a, type = "response")), color = "red")
+```
+
+## d. Significance test
+
+Use model comparison (LRT or AIC, your choice) to determine if there is a significant change in survival probability through time over this time period.
+
+```{r}
+m0 <- glm(cbind(alive, dead) ~ 1, family = binomial(link = "logit"), data = plant)
+lrtest(m0, m1)
+```
+
+No significant effect of year on survival probability (p = 0.193)
+
+
+
+
+
+
