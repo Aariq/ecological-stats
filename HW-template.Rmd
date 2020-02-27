@@ -1,0 +1,91 @@
+---
+title: "Homework Title"
+author: "Your Name"
+date: "2/20/2020"
+output: word_document
+---
+
+**Delete these instructions before you hand in your homework!!**
+
+Use this template for your homeworks, if you want.  It's still totally fine to just type your answers in Word and copy and paste in R code output and plots.
+
+Make sure to edit the YAML header above this text.
+
+TIP: Regularly choose **"restart R and run all chunks"** from the Session menu (or the run button).  If you get errors, then this will NOT knit to word!!
+
+If you don't have Word, then you can knit to PDF or HTML and print the results.
+
+# Common problems using R Markdown:
+
+1. My code runs but it doesn't knit!
+
+  - Did you try "restart R and run all chunks?"  Your code might not actually run in a fresh R session.
+
+  - Make sure your .RMD file name doesn't contain spaces.  Sometimes (but not always) this prevents files from knitting to word correctly
+
+2. Things aren't formatted like they should be in the Word document.
+
+  - Markdown (this space here outside of code chunks) can be finicky.  Just edit the Word doc by hand if you can't figure out how to format something right.
+
+  - Try adding spaces.  Seriously, markdown sometimes gets tripped up when there isn't enough space between, say, text and a code chunk, or a header and a bulleted list.
+
+# Markdown cheatsheet:
+
+# Heading 1
+## Heading 2
+### Heading 3
+
+*itallics*
+**bold**
+
+- bulleted
+- list
+
+**Delete these instructions before you hand in your homework!!**
+ 
+
+```{r packages, include=FALSE}
+library(tidyverse)
+# load any other packages you need in this chunk
+```
+
+```{r data, include=FALSE}
+# load all data (.csv files) in this chunk.
+# birds <- read_csv("birds.csv")
+```
+
+
+# Question 1
+
+## Part A
+
+```{r}
+#your code here
+```
+
+<Your written answers here.  Homeworks that only show code and code output will lose points!>
+
+## Part B
+
+```{r}
+#your code here
+```
+
+<your written answers go here>
+
+# Question 2
+
+## Part A
+
+```{r echo=FALSE}
+#This chunk has options set to only show the output, but not the code that generates the output (echo=FALSE)
+```
+
+
+
+## Part B
+
+```{r}
+#code goes here
+```
+
