@@ -1,0 +1,154 @@
+---
+title: "Likelihood Ratio Tests and AIC"
+author: "Eric Scott"
+date: "2/6/2020"
+output: powerpoint_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source(here::here("plot_theme.R"))
+library(tidyverse)
+```
+
+# Creating a Dataframe Directly in R
+
+data for island occupancy by voles
+
+```{r}
+vole_dat <- tibble(
+  year = 1972:1977,
+  with_voles = c(16, 17, 28, 21, 4, 19),
+  no_voles = c(24,23,12,19,36,21)
+) %>% 
+  mutate(year_factor = as.factor(year)) # create version of the year variable coded as 6 categories (for model b)
+
+head(vole_dat)
+```
+
+# Inspect data
+
+```{r}
+str(vole_dat)
+```
+
+# Comparing models with LRT
+
+## 1. Fit each model
+
+Model A: constant occupancy
+
+```{r}
+ma <- glm(cbind(with_voles, no_voles) ~ 1,
+           family = binomial(link = "identity"), data = vole_dat)
+coef(ma)
+logLik(ma)
+```
+
+# Comparing models with LRT
+
+## 1. Fit each model
+
+Model B: occupancy differs in each year
+
+```{r}
+mb <- glm(cbind(with_voles, no_voles) ~ -1 + year_factor,
+           family = binomial(link = "identity"), data = vole_dat)
+coef(mb)
+logLik(mb)
+model.matrix(mc)
+```
+
+# Comparing models with LRT
+
+## 1. Fit each model
+
+Model C: linear trend in occupancy through time
+
+```{r}
+mc <- glm(cbind(with_voles, no_voles) ~ year,
+           family = binomial(link = "identity"), data = vole_dat)
+coef(mc)
+logLik(mc)
+
+(pred_occupancy <- predict(mc))
+```
+
+# the plot
+
+```{r}
+ggplot(vole_dat, aes(x = year, y = with_voles / (with_voles + no_voles))) +
+  geom_point() + 
+  geom_line(aes(y = pred_occupancy), color = "blue") +
+  geom_point(aes(y = pred_occupancy), color = "blue", shape = "square") +
+  labs(y = "occupancy")
+```
+
+
+# Comparing models with LRT
+
+## 1. Fit each model
+## 2. LRT of model A (constant) vs. model B (years differ)
+
+```{r}
+logLik(ma)
+logLik(mb)
+
+LRstat <- -2*(logLik(ma) - logLik(mb)) %>% as.numeric()
+LRstat
+
+test_df = 6-1
+pchisq(LRstat, test_df, lower.tail = FALSE) #gives us a p-value
+```
+**Occupancy differs significantly among years!**
+
+# Comparing models with LRT
+
+## 1. Fit each model
+## 2. LRT of model A (constant) vs. model B (years differ)
+## 3. LRT of model A (constant) vs. model C (linear trend)
+
+```{r}
+logLik(ma)
+logLik(mc)
+
+LRstat <- -2*(logLik(ma) - logLik(mc)) %>% as.numeric()
+LRstat
+
+test_df = 2-1
+pchisq(LRstat, test_df, lower.tail = FALSE) #gives us a p-value
+```
+
+**No evidence for a simple linear trend through time**
+
+# Relative support for all 3 using AIC
+
+Compare all three models at once using AIC
+
+```{r}
+AIC(ma, mb, mc)
+```
+
+A shortcut to comparing AICs
+
+```{r}
+library(bbmle)
+ICtab(ma, mb, mc)
+```
+
+**The winner is model B (years differ)**
+
+```{r}
+ggplot(vole_dat, aes(x = year_factor, y = with_voles/(with_voles + no_voles))) +
+  geom_point() +
+  geom_line(aes(group = 1)) +
+#group = 1 is a hack to draw connect the dots type graphs with geom_line()
+  labs(x = "year", y = "observed proportion occupancy")
+```
+
+# Confidence intervals
+
+```{r}
+confint(ma)
+```
+
