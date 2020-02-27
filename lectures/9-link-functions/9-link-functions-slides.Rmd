@@ -1,0 +1,237 @@
+---
+title: "Link Functions"
+author: "Eric Scott"
+date: "2020-02-13"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+source(here("plot_theme.R"))
+```
+
+```{r include=FALSE}
+vole_dat <- tibble(
+  year = 1972:1977,
+  with_voles = c(16, 17, 28, 21, 4, 19),
+  no_voles = c(24,23,12,19,36,21)
+) %>% 
+  mutate(year_factor = as.factor(year)) # create version of the year variable coded as 6 categories (for model b)
+```
+
+# Link Functions
+
+- So far we've only used the "identity" link, which essentially means no link function.
+
+- But generally we will want to use the default link function for the distribution under which our data fall
+
+- For binomial data, the default link function is "logit"
+
+# Logit Link?
+
+For Binomial, actual counts are bounded at 0 and N, and p is bounded at 0 and 1.  This can be problematic for finding maximum liklihoods (algorithms could search over impossible values)
+
+The solution: logit-link function:
+
+$$
+ln\bigg(\frac{p}{1-p}\bigg) = \beta_0
+$$
+
+To un-do or "backtransform":
+
+$$
+\frac{exp(\beta_0)}{1+exp(\beta_0)} = p
+$$
+p is bounded at 0 and 1, but logit(p) is not bounded.
+
+- logit(0) = $-\infty$
+- logit(1) = $\infty$
+
+- GLM with a logit link estimates $\beta_0$ and we can backtransform to get $p$.
+
+NOTE:  Some of the convergence errors I demonstrated earlier in the class can be easily fixed by changing the link function!
+
+# logit transformation in R
+
+We can logit tranform a proportion "manually"
+
+```{r}
+p <- 0.6
+logit_p <- log(p/(1-p))
+logit_p
+```
+
+And backtransform...
+
+```{r}
+exp(logit_p) / (1+ exp(logit_p))
+```
+
+We can also do this with the logit distribution functions like so:
+
+```{r}
+#logit transform
+qlogis(0.6)
+
+#inverse-logit back-transformation
+plogis(0.4054651)
+```
+
+# Why do logit link?
+
+- One simple reason is that the algorithm to find maximum likelihood has a difficult time with proportion data.
+    - Because it might choose starting values that are impossible (not between 0 and 1)
+    - Because convergence might not be as sharp
+    
+```{r include=FALSE}
+df <- vole_dat %>% 
+  ungroup() %>% 
+  mutate(trials = 40) %>% 
+  mutate(p_all = sum(with_voles) / sum(trials)) %>% 
+  mutate(liks = dbinom(with_voles, trials, p_all, log = TRUE))
+
+df
+
+xvals <- seq(0.0001, 0.9999, 0.01)
+logliks <- map_dbl(xvals, ~sum(dbinom(df$with_voles, 40, prob = .x, log = TRUE)))
+
+plotdf <- tibble(xvals, logliks) %>% 
+  mutate(logit_xvals = qlogis(xvals))
+
+loglikplot <- ggplot(plotdf, aes(x = xvals, y = logliks)) +
+  geom_line() +
+  labs(main = "Log-likelihood profile", x = "p", y = "log-likelihood")
+
+loglikplot_logit <- ggplot(plotdf, aes(x = logit_xvals, y = logliks)) +
+  geom_line() +
+  labs(main = "Log-likelihood profile", x = "logit(p)", y = "log-likelihood")
+```
+```{r echo=FALSE, fig.height=5, fig.width=10}
+library(patchwork)
+loglikplot + loglikplot_logit + plot_annotation(title = "Log-likelihood profiles \n for MLE proportion of skerries occupied")
+```
+
+
+# Kind of like transforming data
+
+A logit link is kind of like logit-transforming our data---observed proportions, k/N
+
+- logit: $y = ln (\frac{x}{1-x})$
+- inverse logit: $x = \frac{exp(y)}{1+exp(y)}$
+
+But really the model we are fitting is:
+
+$$
+E[logit(\frac{k}{N})] = \beta_0
+$$
+
+- expected logit transformed values of k/N = some MLE estimate of p
+
+$$
+k \sim Binomial \bigg(p = \frac{exp(\beta_0)}{1 + exp(\beta_0)}, N \bigg)
+$$
+
+- where the number of events, k, follows a binomial distribution defined by p (backtransformed MLE estimate) and N
+
+- Essentially, we are transforming the *model* not the data.
+- keep more information about the data by using the binomial distribution rather than analyzing transformed proportion data (50/100 is different than 5/10).
+- doesn't transform data, so variance is still what you'd expect from a binomial process
+
+# Relationship between link function and transformation
+
+Let's re-fit the models from last time, but with the default logit link. For this example, I'm going to re-code `year` so it's the number of years after 1972 so the intercept for model C makes more sense.
+
+```{r}
+vole_dat <- vole_dat %>% 
+  mutate(year_post = year - 1972)
+```
+
+# Model A, constant proportion
+
+```{r}
+ma <- glm(cbind(with_voles, no_voles) ~ 1,
+           family = binomial(link = "identity"), data = vole_dat) #link = "logit" by default
+ma_logit <- glm(cbind(with_voles, no_voles) ~ 1,
+           family = binomial(), data = vole_dat) #link = "logit" by default
+coef(ma) #proportion of skerries occupied
+coef(ma_logit) #proportion of skerries occupied, on a logit scale
+
+exp(coef(ma_logit)) / (1 + exp(coef(ma_logit))) #backtransform "manually"
+
+plogis(coef(ma_logit)) #plogis() does the inverse logit function
+```
+
+we can use inverse-logit to get coeficients back into proportions
+
+# Model B with logit link
+
+```{r}
+#means parameterization (intercept removed)
+mb <- glm(cbind(with_voles, no_voles) ~ -1 + year_factor,
+          family = binomial(link = "identity"), data = vole_dat)
+
+mb_logit <- glm(cbind(with_voles, no_voles) ~ -1 +year_factor,
+                family = binomial(), data = vole_dat)
+coef(mb)
+coef(mb_logit)
+plogis(coef(mb_logit))
+```
+
+# Model C with logit link
+
+```{r}
+mc <- glm(cbind(with_voles, no_voles) ~ year_post,
+          family = binomial(link = "identity"), data = vole_dat)
+mc_logit <- glm(cbind(with_voles, no_voles) ~ year_post,
+                family = binomial(), data = vole_dat)
+coef(mc)
+coef(mc_logit)
+plogis(coef(mc_logit))
+```
+**Uh-oh! Why didn't that work?** Because order of operations matters!
+
+# Order of operations matters
+
+**Recall** that log(A + B) = log(A)log(B) NOT log(A) + log(B)
+**Believe** that logit(A + B) is NOT logit(A) + logit(B)
+
+Therefore, the order of operations matters when back-transforming results.
+
+1. Do all your calculations using values on the link function scale
+    - predicting values from a line
+    - confidence interval calculations
+    - effects of dummy variables (with effects parameterization, with intercept)
+
+2. THEN back-transform the final results
+
+# Correct way:
+
+```{r}
+mb_logit <- glm(cbind(with_voles, no_voles) ~ year_factor,
+                family = binomial(), data = vole_dat)
+coef(mb_logit) 
+#you can only safely back-transform coefs from no-intercept models
+
+confint(mb_logit) %>% 
+  plogis()
+
+predict(mb_logit) %>% 
+  plogis()
+
+#or
+
+predict(mb_logit, type = "response")
+```
+
+FYI: The coefficients for the effects pramaterization of model B (intercept included) on a logit scale are log-odds ratios, something you might encounter in economics and sociology literature.  
+
+Ecologists are not typically comfortable thinking in log-odds ratios and usually prefer to use means parametrization (no intercept) and then back-transform coefficients to get proportions!
+
+
+# Bank Swallows on the Sacramento River
+
+
