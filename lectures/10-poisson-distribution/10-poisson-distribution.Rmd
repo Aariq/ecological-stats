@@ -1,0 +1,230 @@
+---
+title: "Poisson Distribution"
+author: "Eric Scott"
+date: "2020-02-18"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+
+```
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+source(here("plot_theme.R"))
+library(patchwork)
+library(lmtest)
+library(bbmle)
+```
+
+## Bank Swallows
+
+I misinterpreted the data!
+
+- A "colony" is an entire area with many burrows.  Colonies can be 10s -- 1000s of individuals.
+- An "extinct" colony is an area of river bank that becomes completely uninhabited the following year.
+
+### Go through analysis from last time in R
+
+# Poisson Distribution
+
+## slides from Lee
+
+## Log link
+
+Natural log is the default link function for the Poisson distribution.  A log link is kind of like log-transforming the observed counts.
+
+log: $y = ln(x)$
+backtransform: $x = exp(y)$
+
+But really the model we're fitting is:
+
+$$
+\textrm{E}[log(\lambda)] = \beta_0
+$$
+$$
+\#events \sim Poisson(mean = exp(\beta_0))
+$$
+
+## lee's slides
+
+The binomial distribution approaches the Poisson distribution as $N \rightarrow \infty$ and $p = \frac{\lambda}{N}$
+
+```{r}
+library(latex2exp)
+df <- tibble(x = rep(1:80, 3), lambda = rep(c(2, 10, 40), each = 80), y = dpois(x, lambda = lambda))
+
+poisplot<- ggplot(df, aes(x, y, fill = as.factor(lambda))) +
+  geom_col(position = "dodge") +
+  scale_fill_discrete(TeX("$\\lambda$")) +
+  labs(title = "Poisson distributions", x = "count", y = "P(count)")
+```
+```{r}
+df2 <- tibble(x = rep(1:80, 3), p = rep(c(2/80, 10/80, 40/80), each = 80), y = dbinom(x, 80, prob = p)) %>% mutate(p_fac = as.factor(p))
+binplot <-ggplot(df2, aes(x, y, fill = p_fac)) +
+  geom_col(position = "dodge") +
+  scale_fill_discrete("p", labels = c("2/80", "10/80", "40/80")) +
+  labs(title = "Binomial distributions (N = 80)", x = "count", y = "P(count)")
+```
+```{r fig.height=6, fig.width=7.5}
+binplot / poisplot
+```
+
+
+## A Poisson GLM
+
+Let's return to the bank swallows, but instead of modeling extinctions, let's just ask if the total number of colonies has changed.
+
+```{r message=FALSE, warning=FALSE}
+birds <- read_csv(here("data", "BankSwallows.csv"))
+head(birds)
+```
+
+## Example 1: bank swallows, Poisson GLM
+
+Model 1: mean number of colonies
+
+```{r}
+m1 <- glm(num_colonies ~ 1, family = poisson(link = "log"), data = birds)
+coef(m1)
+exp(coef(m1))
+```
+
+This is just the mean number of colonies
+
+```{r}
+mean(birds$num_colonies)
+```
+
+## Example 1: bank swallows, Poisson GLM
+
+Model 2: different means for early vs. late
+
+```{r}
+m2 <- glm(num_colonies ~ -1 + period, family = poisson, data = birds)
+coef(m2)
+exp(coef(m2))
+```
+
+Compare to means estimated from raw data:
+
+```{r}
+birds %>% group_by(period) %>% summarize(mean_colonies = mean(num_colonies))
+```
+```{r}
+lrtest(m1, m2)
+```
+
+No difference between early and late.
+
+## Example 1: bank swallows, Poisson GLM
+
+Model 3: mean number of colonies by year
+
+```{r}
+m3 <- glm(num_colonies ~ -1 + as.factor(year), family = poisson, data = birds)
+exp(coef(m3))
+```
+
+This just gives us back our original data since there is only 1 row per year!
+
+## Example 1: bank swallows, Poisson GLM
+
+Model 4:  trend through time
+
+```{r}
+m4 <- glm(num_colonies ~ year, family = poisson, data = birds)
+coef(m4)
+```
+
+Intercept and slope on log-scale
+
+```{r}
+bbmle::ICtab(m1, m2, m3, m4)
+```
+
+Model 1 "wins", but all other models can't be discarded because they are within 2 dAIC of the winner.
+
+## Example 2
+
+### Counts of butterfly eggs per 1m^2^ plot (uniform sampling effort)
+
+## Use lee's slides
+
+## Example 3
+
+### Numbers of bees visiting individual plants, based on different number of hours of observation
+
+Use Lee's slides
+
+## Example 3 Code
+```{r message=FALSE, warning=FALSE}
+bees <- read_csv(here("data", "BeeVisits.csv"))
+```
+
+Poisson family, log-link model with an offset.  This model estimates the ratio of the response variable to the offset variable, in this case bees per hour of observation.
+
+```{r}
+m.bees <- glm(Bees ~ 1, offset = log(Hours),
+              family = poisson, data = bees)
+coef(m.bees) #ratio on a log scale
+exp(coef(m.bees)) #back-transformed ratio
+```
+About 1.13 bees per observation hour across the whole dataset
+
+Confidence intervals:
+
+```{r}
+exp(confint(m.bees))
+```
+
+## Do bee visitation rates differ among sites?
+
+```{r}
+m.sites <- glm(Bees ~ -1 + Site, offset = log(Hours),
+               family = poisson, data = bees)
+library(lmtest)
+lrtest(m.bees, m.sites) #likelihood ratio test
+```
+
+Yes, sites differ significantly in their rate of bee visitation
+
+## Do bee visitation rates differ among sites?
+
+How do the sites differ from eachother?
+
+```{r}
+exp(coef(m.sites))
+```
+
+Reservoir has the highest visitation rates, but are they significantly different than the other sites?
+
+```{r}
+exp(confint(m.sites))
+```
+
+The 95% CI for Reservoir overlaps the Hayden site, but the bee visitation rate for Reservoir is significantly higher than all the other sites.
+
+It looks like all the other sites have similar rates.
+
+## Plotting CIs
+
+Some example code at how you might plot the confidence intervals for each level of a factor
+
+```{r}
+beeplotdf <-
+  exp(confint(m.sites)) %>% 
+  as_tibble(rownames = "site") %>% #convert to a data frame
+  mutate(site = str_remove(site, "Site")) %>%  #clean up site names
+  rename(lower = `2.5 %`, upper = `97.5 %`) %>% #clean up column names
+  add_column(mean = exp(coef(m.sites))) #add column for coefficients
+
+ggplot(beeplotdf, aes(x = site, y = mean)) +
+  geom_point(shape = "square", size = 3) + #plot mean rates
+  geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.2)) + #add bars for CI
+  labs(x = "Site", y = "Bee visitation rate (bees/hour)") +
+  ylim(0,2)
+```
+
