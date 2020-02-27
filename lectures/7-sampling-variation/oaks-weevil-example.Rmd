@@ -1,0 +1,155 @@
+---
+title: "Oak weevil worked example"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+```
+
+
+# Read in Data
+
+You could make a .csv in excel and read it in, or you could enter the data directly.  I used `tribble` which is a variant of `tibble` that makes it easier to type data in (maybe).
+
+```{r}
+df <- tibble::tribble(
+  ~site, ~oak.sp, ~weevils, ~none,
+  "H",   "red",   584,       187,
+  "H",   "white", 406,       74,
+  "S",   "red",   910,       118,
+  "S",   "white", 308,       66,
+  "V",   "red",   391,       101,
+  "V",   "white", 500,       82
+) %>% 
+  mutate(trials = weevils + none)
+
+df
+```
+
+# Set up 3 models
+
+1. Same proportion of weevil infestation across all samples
+2. Difference in proportion of weevil infestation by oak species
+3. Difference in proportion of weevil infestation by site
+
+## Step 1: Calculate appropriate "p" for each model
+
+for p1, it's just events/trials for entire dataset
+
+```{r}
+sum(df$weevils) / sum(df$trials)
+```
+
+But, let's keep it as a dataframe for convenience and do this with `mutate()` instead
+
+```{r}
+df2 <- df %>%
+  mutate(p1 = sum(weevils) / sum(trials)) %>% #model 1
+  group_by(oak.sp) %>% 
+  mutate(p2 = sum(weevils) / sum(trials)) %>% #model 2
+  group_by(site) %>% #overrides previous group_by()
+  mutate(p3 = sum(weevils) / sum(trials)) %>% 
+  ungroup() #make sure to do this, or you might have weird things happening later
+df2
+```
+```{r}
+ggplot(df2, aes(x = site, y = p3)) + geom_point()
+```
+
+## Step 2: Calculate P(data|model)
+
+Because of the AND rule, we can calculate Ln(P(data|model)) for each row and add them up.
+
+```{r}
+df3 <- df2 %>% 
+  mutate(logLiks1 = dbinom(weevils, trials, p = p1, log = TRUE),
+         logLiks2 = dbinom(weevils, trials, p = p2, log = TRUE),
+         logLiks3 = dbinom(weevils, trials, p = p3, log = TRUE))
+df3
+```
+
+Now to add them all up to get log likelihoods for the entire datset (for each model) we can use `summarize()`
+
+```{r}
+df4 <- df3 %>% 
+  summarize(logLik1 = sum(logLiks1),
+            logLik2 = sum(logLiks2),
+            logLik3 = sum(logLiks3))
+df4
+# sum(df3$logLiks1)
+```
+
+```{r}
+df
+
+m1 <- glm(cbind(weevils, none) ~ 1, family = binomial(link = "identity"), data = df)
+coef(m1)
+logLik(m1)
+
+m2 <- glm(cbind(weevils, none) ~ -1 + oak.sp, family = binomial(link = "identity"), data = df)
+coef(m2)
+
+m3 <- glm(cbind(weevils, none) ~ -1 + site, family = binomial(link = "identity"), data = df)
+coef(m3)
+```
+
+
+Nice!
+
+# Likelihood ratio test
+
+Our "test statistic" is
+
+$$
+-2ln(\frac{L_2}{L_1})
+$$
+
+where L_2_ is the simpler model. So I'll calculate that for pairs of nested models.  Let's start with "Is there a differece among species"  That is, does adding the predictor "oak.sp" significantly improve the model likelihood?
+
+```{r}
+test1 <- -2 * (df4$logLik1 - df4$logLik2)
+```
+
+Now, we can get a p-value with `pchisq()`.  df is the number of parameters in the complex model (two species) minus the number of parameters in the simple model (just one proportion for weevils)
+
+```{r}
+pchisq(test1, df = 2-1, lower.tail = FALSE)
+```
+
+p = 0.0713.  We fail to reject our null model!  We cannot conclude that there are differences in weevil proportion among species.
+
+Now let's do the same for site:
+
+```{r}
+test2 <- -2 * (df4$logLik1 - df4$logLik3)
+pchisq(test2, df = 3-1, lower.tail = FALSE) #note, there are THREE sites, so df = 2
+```
+
+P < 0.0001.  We reject our null model!  We can say that sites are "significantly" different in their proportion of weevils.
+
+# AIC method
+
+We could also calculate AIC for all three models and compare them all at once with AIC
+
+$AIC = 2k - 2Ln(L)$
+
+```{r}
+AIC1 <- 2*1 - 2*df4$logLik1 #k = 1 p for whole dataset
+AIC2 <- 2*2 - 2*df4$logLik2 #k = 2 p for dataset (one for each species)
+AIC3 <- 3*2 - 2*df4$logLik3 #k = 3 p for dataset (one for each site)
+
+AIC1
+AIC2
+AIC3
+```
+
+AIC3 is the lowest, meaning the model including different maximum likelihood estimates of p for each site "wins".  We would report that the dAIC for this model is 
+
+```{r}
+AIC1 - AIC3
+```

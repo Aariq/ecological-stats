@@ -1,0 +1,122 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Packages Needed
+
+```{r}
+library(googlesheets4)
+library(tidyverse)
+library(janitor)
+library(lmtest)
+```
+
+# Read in and tidy data
+
+Things we need to do:
+
+1. Clean up the column names to make them easier to deal with in R
+2. Make sure there are only two colors ("Purple" and "purple" are different according to R)
+3. Create a column of trials - events ("failures") for input to `glm()`
+
+## Read in data
+
+```{r}
+sheet_id <- "1IOwB5IEPXZl9nazgWyV3O1FDw8IpWOsm7MnFEZKyiwE"
+bags_raw <- read_sheet(sheet_id, sheet = 1)
+colors_raw <- read_sheet(sheet_id, sheet = 2)
+```
+
+## Clean color data
+
+```{r}
+colors <-
+  colors_raw %>% 
+  clean_names() %>% 
+  mutate(n_notcolor = n_trials - k_events) %>% 
+  select(name, color, n_trials, n_notcolor, n_color = k_events) #rename variable inside select()
+
+str(colors)
+```
+
+Let's make `color` a factor
+
+```{r}
+colors1 <- colors %>% 
+  mutate(color = as.factor(color))
+
+str(colors1)
+```
+
+Factor 1/ 4 levels!  Ok, hopefully that's just differences in capitalization.
+
+```{r}
+colors2 <- colors1 %>% 
+  mutate(color = as.factor(str_to_lower(color))) #vrom stringr package, part of tidyverse
+
+str(colors2)
+```
+
+Yay!  We will use `colors2` for our data
+
+
+# GLM
+
+First we'll fit a GLM that estimates a single proportion for the whole dataset.
+
+```{r}
+m0 <- glm(cbind(n_color, n_notcolor) ~ 1,
+                family = binomial(link = "identity"), data = colors2)
+coef(m0)
+logLik(m0)
+```
+
+
+...And a model that estimates separate proportions for each color
+
+```{r}
+m1 <- glm(cbind(n_color, n_notcolor) ~ color,
+                family = binomial(link = "identity"), data = colors2)
+coef(m1)
+
+m1a <- glm(cbind(n_color, n_notcolor) ~ -1 + color,
+                family = binomial(link = "identity"), data = colors2)
+coef(m1a)
+
+coef(m1)[1] + coef(m1)[2]
+```
+
+What does this mean?
+
+# Test with likelihood ratio test
+
+```{r}
+lrtest(m1, m0)
+lrtest(m0, m1a) #order doesn't matter
+
+lrtest(m1)
+```
+
+```{r}
+logLik(m1)
+
+logLik(m0)
+
+test_LR <- -2*(logLik(m0) - logLik(m1)) %>% as.numeric()
+
+pchisq(test_LR, df = 1, lower.tail = FALSE)
+```
+
+
+
+# AIC
+
+```{r}
+AIC(m1, m0)
+
+# or bbmle::ICtab()
+bbmle::ICtab(m1, m0)
+```
+
+Which model "wins"?  Is this support that the other model "loses"?

@@ -1,0 +1,185 @@
+---
+title: "Sampling Variation"
+author: "Eric Scott"
+date: "2020-02-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source(here::here("plot_theme.R"))
+library(tidyverse)
+```
+
+PRELIMINARY: review Bayes Theorem & HW 2
+
+
+General idea of sampling variation:  If you repeat an experiment many times under identical conditions, you will not get the same results.  
+
+Why?  Some processes are probabilistic, and therefore not controlled even under “identical conditions”. e.g., we expect the number of events to differ among repeated sets of binomial trials, even if conditions are all the same.
+
+**Fundamental problem in statistics:**  How to tell whether variation in outcomes of a small number of trials is simply sampling variation vs. actual difference among groups.
+
+In other words, are samples drawn from the same population (defined by some parameters) or different populations?
+
+## Exercise:
+
+Our population = skittles  
+
+### Case 1:
+
+Event = class’s favorite color/flavor  
+Samples = two bags of skittles  
+
+Since these bags are repeated samples from the same population, we do not expect the proportion to vary significantly among bags
+
+### Case 2:  
+
+Event 1 = favorite color/flavor  
+Event 2 = least favorite color/flavor  
+Samples = two bags of skittles (favorite color in one, least favorite color in the other)  
+
+Since these two events might have different proportions in the population (ALL the skittles), we might expect these proportions to differ significantly in the samples.
+
+For each case, you’ll fit two models to investigate:
+
+- Model 1: The proportion of an event differs between the two samples (they are from different populations)
+- Model 2: The probability of an event is the same in both samples (they come from the same population)
+
+
+
+**NOTE:**  This is a highly unrealistic situation.  In real ecological situations, we only have one set of data, and we need to decide which model is best based on only one sample.  We use theoretical principles about how the result would differ if we were able to repeat an experiment multiple times.  With these principles, we make inference about which model is best supported by our data.  
+
+We will get to know the general idea today, and then look at some formal statistical methods (end of class or next week).
+
+
+Fit two models to data: 
+
+1. separate estimates of the probability of an event for each sample (two different populations)
+    - calculate MLE of p for each population
+    - calculate log-L(model|data, MLE parameters) for each sample 
+    - use the “AND” rule of probability to obtain the log-likelihood of the combined dataset for your pair of samples
+
+2. one estimate of the probability of an event for both samples (two samples from the same population)
+    - calculate MLE of p for the combined data
+    - calculate log-L(model|data, MLE parameters) for each sample using the p for the combined data
+    - use the “AND” rule of probability to obtain the likelihood of the combined data set for your pair of samples
+
+
+In Case 2:
+
+1. separate estimates of the probability for each event (skittle color)
+		- calculate MLE of p for each color
+		- calculate log-L(model|data, MLE parameters) for each color
+		- use the AND rule of probability to get a log-likelihood of the combined data for both colors
+
+2.  one estimate of probability for both colors
+		- average MLE of p for the two colors combined
+		- calculate log-L(model|data, MLE parameters) for each color using the p for both colors combined
+		- use the AND rule of probability to obtain likelihood of the combined dataset.
+
+
+Then, calculate the difference in log-likelihoods, L1 - L2 where L1 is the model with more parameters (e.g. a p for each color)
+
+Plot a histogram of the log-likelihoods
+
+# More about distributions
+
+So far we've been plotting the binomial distribution using `dbinom()`. This is called a probability density function (PDF):
+
+```{r}
+library(ggplot2)
+library(ggtext)
+df <- data.frame(x = 0:14, y = dbinom(0:14, 14, 0.25))
+ggplot(df, aes(x = x, y = y)) +
+  geom_col() +
+  labs(x = "# orange skittles", y = "proportion of 'experiments'") +
+  annotate("text", x = 10, y = 0.2, label ="N = 14, p = 0.25", size = 8)
+ggsave("pdf.png")
+```
+```{r}
+set.seed(133)
+rand <- data.frame(x = rbinom(25, 14, 0.25))
+ggplot(rand, aes(x)) + geom_bar() +
+  labs(x = "# orange skittles", y = "number of 'experiments'") + 
+  annotate("text", x = 10, y = 5, label ="simulated samples", size = 8) +
+  xlim(0, 14)
+ggsave("simpdf.png")
+```
+
+## Cumulative density function
+
+We can also plot the cumulative density function (CDF) with pbinom(), which is just a cumulative sum.
+
+```{r}
+df2 <- data.frame(x = 0:14, y = pbinom(0:14, 14, 0.25))
+ggplot(df2, aes(x = x, y = y)) +
+  geom_col() +
+  labs(x = "# orange skittles", y = "proportion of 'experiments' <br> with this many or fewer") +
+theme(axis.title.y = element_markdown())
+ggsave("cdf.png")
+
+ggplot(df2, aes(x = x, y = y)) +
+  geom_col() +
+  labs(x = "# orange skittles", y = "proportion of 'experiments' <br> with this many or fewer") +
+theme(axis.title.y = element_markdown()) +
+  geom_hline(yintercept = 0.95, color = "red")
+```
+
+```{r}
+rand %>%
+  count(x) %>% 
+  bind_rows(tibble(x = 7:14, n = 0)) %>% 
+  mutate(y = cumsum(n)) %>% 
+  ggplot(aes(x = x, y = y)) + geom_col() +
+  labs(x = "# orange skittles", y = "number of 'experiments' <br> with this many or fewer") +
+  theme(axis.title.y = element_markdown())
+ggsave("simcdf.png")
+```
+
+
+This make sense because the probabilities have to add to 1
+
+
+
+# Last year's results
+
+```{r}
+classdata <- read_csv(here("lectures", "7-sampling-variation", "classdata.csv"))
+preal <- classdata %>% 
+  janitor::clean_names() %>% 
+  filter(!is.na(log_l1_log_l2)) %>% 
+  mutate(LR = log_l2_both - log_l1_both) %>% 
+  ggplot(aes(-2*LR)) + 
+  geom_histogram(bins = 25) +
+  labs(y = "number of 'experiments'", x = "-2 * Ln(LR)")
+
+
+chisqdist <- 
+  ggplot(data.frame(x =seq(0, 5, 0.01), y = dchisq(seq(0, 5, 0.01), df = 1)), aes(x = x, y = y)) +
+  geom_line() +
+  ylim(0, 1) +
+  labs(x = "x", y = "probability")
+
+library(patchwork)
+library(cowplot)
+preal + chisqdist
+
+save_plot("compare_chisq.png", preal + chisqdist, ncol = 2, base_asp = 1)
+
+
+
+chisqpdf <- ggplot(data.frame(x =seq(0, 5, 0.01), y = pchisq(seq(0, 5, 0.01), df = 1)),
+                   aes(x = x, y = y)) +
+  geom_line() +
+  ylim(0, 1) +
+  labs(x = "-2*ln(LR)", y = "probability")
+save_plot("chisqCDF.png", chisqpdf)
+
+
+withline <- chisqpdf +
+  geom_vline(xintercept = 3.84, color = "red", lty = "dashed") +
+  geom_hline(yintercept = 0.95, color = "red", lty = "dashed")
+save_plot("chisqCDF with line.png", withline)
+```
+

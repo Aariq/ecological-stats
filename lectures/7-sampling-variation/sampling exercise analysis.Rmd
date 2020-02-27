@@ -1,0 +1,115 @@
+---
+title: "Skittles Analysis"
+output: html_notebook
+---
+
+# Load packages
+
+If you haven't installed a package, you won't be able to load it with `library()`.
+
+Use the install button on the packages tab or run `install.packages("janitor", "googlesheets4")` to install these packages
+
+```{r}
+library(googlesheets4) #for reading in google sheets
+library(tidyverse)
+library(janitor) #for cleaning up data.  We'll just use clean_names()
+```
+
+# Goal
+
+Let's read in the class data and plot a histogram of the distribution of the difference in likelihoods between the two models.
+
+# Read in data from our google sheet
+
+```{r}
+sheet_id <- "1IOwB5IEPXZl9nazgWyV3O1FDw8IpWOsm7MnFEZKyiwE"
+bags_raw <- read_sheet(sheet_id, sheet = 1)
+colors_raw <- read_sheet(sheet_id, sheet = 2)
+```
+```{r}
+head(bags_raw)
+```
+
+# Tidy up column names
+
+These column names aren't too friendly because they have spaces and special characters. We'd have to use backticks.  So we can use `janitor::clean_names()` to make things nicer to type.
+
+```{r}
+bags <-
+  bags_raw %>% 
+  janitor::clean_names() %>% #auto cleans names
+  rename(d_loglik = log_l2_log_l1) #manually rename a column
+head(bags)
+```
+
+# Filter and select useful columns
+
+All we want right now is the `d_loglik` column really
+
+```{r}
+bags2 <-
+  bags %>%
+  filter(!is.na(d_loglik)) %>%  #is not NA.  "!" turns TRUE into FALSE and FALSE into TRUE
+  select(name, d_loglik) #this isn't essential, but it makes the dataframe less confusing IMO
+bags2
+```
+
+# Make a histogram
+
+Two ways:
+
+## Base R:
+
+```{r}
+hist(bags2$d_loglik)
+```
+
+## ggplot2:
+
+```{r}
+ggplot(bags2, aes(x = d_loglik)) +
+  geom_histogram(bins = 15) #play around with number of bins to see how it changes the histogram
+```
+
+
+# How to interpret?
+
+
+Which has higher likelihood on average?
+
+- More complex model (two p's---one for each bag) always has higher likelihood
+
+# back to slides
+
+- adding parameters (e.g. two p's instead of 1) ALWAYS increases likelihood
+- How much bigger does the likelihood have to be in order for us to say it's a significant improvement to the model?
+
+
+# Try on your own with different colors and AIC
+
+```{r}
+colors_raw %>% 
+  clean_names() %>% 
+  mutate(AIC1 = 2*2 - 2*log_l1_sum,
+         AIC2 = 1*2 - 2*log_l2_sum,
+         dAIC = AIC2 - AIC1) %>% 
+  filter(!is.na(dAIC)) %>% 
+  ggplot(aes(x = dAIC)) + geom_histogram(bins = 15) +
+  geom_vline(xintercept = 0, color = "red", lty = "dashed") +
+  labs(x = "AIC(1 param) - AIC(2 param)", y = "# of experiments", title = "Different proportion for green and purple?")
+ggsave("AICcolors.png")
+```
+
+```{r}
+bags_raw %>% 
+  clean_names() %>% 
+  mutate(AIC1 = 2*2 - 2*log_l1_sum,
+         AIC2 = 1*2 - 2*log_l2_sum,
+         dAIC = AIC2 - AIC1) %>% 
+  filter(!is.na(dAIC)) %>% 
+  ggplot(aes(x = dAIC)) + geom_histogram(bins = 15) +
+  geom_vline(xintercept = 0, color = "red", lty = "dashed") +
+  labs(x = "AIC(1 param) - AIC(2 param)", y = "# of experiments", title = "Different proportion for two bags?")
+ggsave("AICbags.png")
+```
+
