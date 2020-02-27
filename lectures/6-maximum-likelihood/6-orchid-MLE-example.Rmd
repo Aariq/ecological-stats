@@ -1,0 +1,94 @@
+---
+title: "Calculating MLE for 'null' binomial distribution"
+output: html_notebook
+---
+
+# Load packages
+
+```{r}
+library(tidyverse)
+```
+
+# Read in data
+
+In R Markdown documents like this one, you can't change the working directory.  Just put the data file in the same folder as this document and the following code should work (as long as the file has the same name as in the code)
+
+```{r}
+orchids <- read_csv("orchid.seedlings.csv") 
+head(orchids)
+```
+
+# Using math/dbinom()
+
+1. Assume that all the years (rows) in the dataset are samples from the *same* population and calculate the MLE for p for that population.
+
+```{r}
+mle_p <- sum(orchids$seedlings.0) / sum(orchids$seeds.m1)
+mle_p
+```
+
+2. Use this probability in `dbinom()` to get a log-likelihood for the entire dataset (all rows/years)
+
+```{r}
+dbinom(x = orchids$seedlings.0,
+       size = orchids$seeds.m1,
+       prob = mle_p,
+       log = TRUE) %>%
+  sum() #add the log-likelihoods for each year to get log-likelihood for entire dataset.
+```
+
+
+# Use glm()
+
+Now, use `glm()` to estimate the MLE for p and the log-likelihood for the entire dataset, again, assuming that all the rows/years are samples from the same population.
+
+This is essentially what the ` ~ 1` part of the formula means.
+
+`glm()` wants "successes" and "failures" rather than events and trials
+
+```{r}
+orchids2 <-
+  orchids %>% 
+  mutate(ungerminated.m1 = seeds.m1 - seedlings.0) #"failures" are seeds that didn't become seedlings
+# glm(cbind(successes, failures) ~ 1, family = binomial(link = "identity"))
+
+m1 <- glm(cbind(seedlings.0, ungerminated.m1) ~ 1, 
+          family = binomial(link = "identity"),
+          data = orchids2)
+
+logLik(m1)
+coef(m1)
+```
+
+Are the two maximum likelihood estimates of p exactly the same?
+
+```{r}
+coef(m1) == mle_p
+```
+
+NOPE! Because one of them was calculated using rules derived with calculus and the other is just an approximation from an algorithm.
+
+Note: if you want to see more decimal places, you can change that with `options(digits = )`
+
+```{r}
+options(digits = 20)
+coef(m1)
+mle_p
+```
+# By the way...
+
+If you for some reason needed to increase the number of iterations to get convergence, you'd do it like this:
+
+```{r}
+m1.a <- glm(cbind(seedlings.0, ungerminated.m1) ~ 1, 
+          family = binomial(link = "identity"),
+          data = orchids2,
+          maxit = 100) # go for 100 iterations max
+
+#these are the same because it converges well before the default `maxit`
+coef(m1.a) == coef(m1) 
+logLik(m1.a) == logLik(m1)
+```
+
+
+

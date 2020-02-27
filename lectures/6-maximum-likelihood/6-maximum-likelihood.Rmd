@@ -1,0 +1,274 @@
+---
+title: "Maximum Likelihood"
+author: "Eric Scott"
+date: "1/27/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+library(tidyverse)
+```
+```{r include=FALSE}
+ps <- seq(0.0001, 0.9999, 0.0001)
+fx <- dbinom(x = 10, size = 30, prob = ps, log = TRUE)
+fprimex <- c(diff(fx) / diff(ps), NA)
+fprimeprimex <- c(diff(fprimex) / diff(ps), NA)
+
+df <- data.frame(ps, fx, fprimex, fprimeprimex)
+
+
+likprof <- ggplot(df, aes(x = ps, y = fx)) +
+  geom_line(color = "darkgreen") +
+  ylim(-10, 0) +
+  labs(x = "p", y = "ln-likelihood")
+
+likderiv <- ggplot(df, aes(x = ps, y = fprimex)) +
+  geom_hline(aes(yintercept = 0), color = "grey40") +
+  geom_line(color = "blue") +
+  ylim(-200, 200) +
+  labs(x = "p", y = "d[ln-likelihood] / d[p]")
+```
+
+## Maximum Likelihood Estimates
+
+```{r echo=FALSE}
+likprof + ggtitle("Binomial log-likelihood for N = 30, k = 10")
+```
+- A **maximum likelihood estimate** (MLE) is an estimate of a parameter that maximizes likelihood.
+- In this example, there is only one free parameter, $p$. 
+- The maximum value of $p$ is where the slope (AKA derivative) is zero.
+
+## Finding Maximum Likelihood
+
+To find the maximum likelihood estimate (MLE) of our parameters...
+
+1. Likelihood Profile (grid search of all parameter combinations)
+    - slow
+    - you might miss a sharp maximum
+2. Calculus
+    - not always solvable    
+3. Clever search algorithms (R uses these)
+    - assumes likelihood surface is smooth
+
+## Calculus
+
+- Last time we saw that for binomial distributions, $p = k/N$ (because calculus!)
+- What is the maximum likelihood estimate of $p$ for 10 events and 30 trials?
+- Most of the time, our models will be more complex with more than one parameter to estimate, and our likelihood profile (or surface) won't be easy to do calculus on.
+
+## In R using clever algorithms
+
+- `glm()` is one function that we can use to get a MLE for $p$.
+
+- the `glm()` function fits a **generalized linear model**, a concept we will explain in more depth later in the course.
+
+- For now, we're going to use it to get the likelihood for a "null" model (i.e. the usual shape of the distribution without any additional sources of variation).
+
+
+## R code for MLE using glm()
+
+```{r}
+success <- 10
+failure <- 30 - success
+mydat <- cbind(success, failure)  # successes and failures, i.e., k and N-k
+glm(mydat ~ 1, family = binomial(link = "identity")) # function  to estimate parameters
+m1 <- glm(mydat ~ 1, family = binomial(link = "identity")) # need to save the analysis as an object to see results
+logLik(m1) # extract the log likelihood, evaluated at MLE
+coef(m1) # extract the maximum likelihood estimates of the coefficients
+```
+
+## Under the hood of glm()
+
+The `glm()` function in turn calls `glm.fit()` which in turn calls `glm.control()`.
+
+It uses an algorithm to find the parameter values that maximize likelihood. This might seem like overkill now (remember, for a simple binomial model, the MLE of $p$ is $k/N$), but a lot easier than calculating by hand for more complicated models with more parameters.
+
+- You don't need to know how to do these calculations, R does them for you!
+- So why am I telling you about this? Because common error messages encounted when running `glm()` can only be understood if you have an idea of what is going on under the hood
+
+Terms you want to understand:
+
+- "convergence"
+- "starting values"
+- "iterations"
+- "tolerance"
+
+## Maximum Likelihood algorithms
+
+GOAL: find place where slope (derivative) = 0 in situations where you can’t solve the general equation using calculus.
+
+```{r echo=FALSE}
+likprof + ggtitle("Binomial log-likelihood for N = 30, k = 10")
+```
+
+## Newton's Method
+We'll come back to maximum likelihood in a bit...  
+Newton's method is a way to find the x-intercept of arbitrary functions
+
+In a nutshel...
+
+- Start with a guess, $x_0$
+- Calculate $f(x_0)$ and the derivative (slope) at $x_0$, $f^\prime(x_0)$
+- Pick a new guess, based on where the tangent line crosses the x-axis: $x_1 = x_0 - f(x_0)/f^\prime(x_0)$
+- Keep going until $x_0 \approx x_1$, with some tolerance
+
+[Graphical explanation on board]
+
+Start with simple exponential curve.
+
+Pick $x_0$
+
+Draw tangent
+
+Label $x_1$
+
+How can we find $x_1$ mathematically?
+
+Draw triangle.  Height of triangle = $f(x_0)$, AKA y-value at $x_0$ Base of triangle = $x_0 - x_1$.  Slope of triangle = rise/run (alternatively, $tan \theta = opposite/adjacent$).  Slope is also the derivative of the curve evaluated at $x_0$, $f^\prime(x_0)$
+
+$$
+f^\prime(x_0) = \frac{f(x_0)}{x_0 - x_1}
+$$
+
+rearrange
+
+$$
+{x_0 - x_1} = \frac{f(x_0)}{f^\prime(x_0)}
+$$
+
+$$
+x_1 = x_0 - \frac{f(x_0)}{f^\prime(x_0)}
+$$
+
+### But what if I don't know how to take the derivative?
+
+Don't worry! An approximation is good enough! R uses some default tiny $\Delta x$ and caluculates rise over run for that tiny distance to estimate the slope.
+
+## Iterate
+
+- After you find $x_1$, repeat to find $x_2$
+
+$$
+x_2 = x_1 - \frac{f(x_1)}{f^\prime(x_1)}
+$$
+
+A more general form:
+
+$$
+x_{n+1} = x_n - \frac{f(x_n)}{f^\prime(x_n)}
+$$
+
+Keep iterating until $x_{n+1} \approx x_n$ within some small tolerance (say, 10^-6^)
+
+## Using Newton's Method for MLE
+
+But we want to find a *maximum* not a *root*! We can use deriviatives to find where the *slope*, $f^\prime(x) = 0$ instead of finding where $f(x) = 0$
+
+```{r}
+likderiv + ggtitle("Deriviative of binomial log-likelihood N = 30, k = 10")
+```
+
+Alternatively, just re-write Newton's method using first derivative and second derivative.
+
+$$
+x_1 = x_0 - f^\prime(x_0)/f^{\prime \prime}(x_0)
+$$
+
+## Example
+
+10 trials, 30 events.  What is the MLE for p(event)?
+
+1. Pick a starting value, $p_0$
+2. find p1
+3. repeat until xn = xn+1
+
+```{r include=FALSE}
+p1 <- 0.1
+df %>% filter(ps == 0.1) %>% mutate(p2 = ps - fprimex/fprimeprimex)
+df %>% filter(ps == 0.17600) %>% mutate(p3 = ps - fprimex/fprimeprimex)
+df %>% filter(ps == 0.268) %>% mutate(p4 = ps-fprimex/fprimeprimex)
+df %>% filter(ps == 0.325) %>% mutate(p5 = ps-fprimex/fprimeprimex)
+df %>% filter(ps == 0.333) %>% mutate(p6 = ps-fprimex/fprimeprimex)
+
+p = c(0.1, 0.176, 0.268, 0.325, 0.333, 0.333)
+fx = c(-7.914854, -4.026201, -2.188971, -1.881945, -1.877225)
+```
+
+```{r echo=FALSE}
+likprof +
+  geom_segment(x = 0.1, xend = 0.176, y = fx[1], yend = fx[2], color = "purple") +
+  geom_point(x = p[1], y = fx[1]) +
+  geom_point(x = p[2], y = fx[2]) +
+    geom_segment(x = p[2], xend = p[3], y = fx[2], yend = fx[3], color = "purple") +
+  geom_point(x = p[3], y = fx[3]) +
+  geom_segment(x = p[3], xend = p[4], y = fx[3], yend = fx[4], color = "purple") +
+  geom_point(x = p[4], y = fx[4]) +
+  geom_segment(x = p[4], xend = p[5], y = fx[4], yend = fx[5], color = "purple") +
+  geom_point(x = p[5], y = fx[5]) +
+  geom_segment(x = p[5], xend = p[6], y = fx[5], yend = fx[6], color = "purple") +
+  geom_point(x = p[6], y = fx[6])
+
+```
+
+|  $p_i$| $f^\prime(x)$|  $f^{\prime\prime}(x)$| p_{i+1}|
+|--:|--:|--:|--:|
+|  0.1|  77.7|  -1022.7| 0.176|
+|  0.176| 32.5| -351.9| 0.268|
+| 0.268| 10.0| -176.5| 0.325|
+| 0.325| 1.1| -138.5| 0.333|
+| 0.333| 0.038| -135.1| 0.333|
+
+(Convergence!!)
+
+## Vocab Recap
+
+- Starting values = initial guess for parameters, e.g. $p_0$
+- Iterations = how many times do you need to run through the algorithm to reach convergence
+- Convergence = when $p_{n+1} \approx p_n$
+- Tolerance = How close to they have to be to be consider "converged"
+
+## Real error messages you might see:
+
+```
+Warning: glm.fit: algorithm did not converge
+```
+OR
+
+```
+Warning: glm.fit: algorithm stopped at boundary value
+```
+
+These are not errors.  That is, `glm()` sill runs and spits out an answer.  But you should not trust the MLE of any parameters in these cases.
+
+How to fix?  You can tell R to try harder by doing more iterations and sometimes that works!
+
+```
+Error in eval(family$initialize) : cannot find valid starting values: please specify some
+```
+
+This is an error.  That is, `glm()` doesn't run and doesn't produce any results.
+
+How to fix?  You can supply some starting values, sometimes you can use the coeficients from a simpler model, or just take a guess.  HOWEVER, this error often results from other more complicated underlying issues.
+
+
+```{r}
+success <- c(0,0,0,0,0)
+failure <- 30 - success
+
+Y = cbind(success, failure)
+
+glm(Y ~ 1, family = binomial(link = "identity"))
+```
+
+Here, it can't find starting values because it's really hard to estimate the probability of an event that never happens!  You've got bigger problems than valid starting values for `glm.fit()`!  You could try providing a starting value, but then you get siome warnings.
+
+```{r}
+glm(Y ~ 1, family = binomial(link = "identity"), start = 0.00000000001)
+```
+
+
+## Exercise: use glm() to get MLE for real data
+oak example.  For now, get MLE for species separately--next time, learn how to combine into one model (I think)
+
+
