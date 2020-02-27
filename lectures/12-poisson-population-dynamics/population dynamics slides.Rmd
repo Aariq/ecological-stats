@@ -1,0 +1,449 @@
+---
+title: "Population Dynamics"
+author: "Eric Scott"
+date: "2/17/2020"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+```
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+source(here("plot_theme.R"))
+library(patchwork)
+library(scales)
+```
+
+## Homework 4 Feedback
+
+1. Can't compare p-values of models to judge relative support
+
+2. Confidence intervals
+  - They don't have to be symmetrical (often aren't with link functions), so report lower and upper not ±.
+  - Error bars plotted on graphs aren't always 95% CIs---need to specify in figure captions
+  
+
+# Hacking GLMs to do population growth models
+
+## Grey Wolves
+
+History
+
+```{r message=FALSE, warning=FALSE}
+wolves <- read_csv(here("data", "NRMwolves.csv"))
+head(wolves)
+wolves <- wolves %>%
+  mutate(year_post = year - 1982,
+         year = as.integer(year)) 
+
+head(wolves)
+```
+
+```{r echo=FALSE}
+wolfplot <-
+  ggplot(wolves, aes(x = year, y = num.wolves)) +
+  geom_point() 
+wolfplot
+```
+
+## Linear vs. exponential growth
+
+We could try to fit a straigt line to the wolf data, but it is going to be difficult.
+
+$$
+N_T = \beta_0 + \beta_1\times T
+$$
+Where $T$ is the year 1990 and $N_T$ is the number of wolves at year T
+
+We could fit this using an "identity" link Poisson GLM...
+
+```{r}
+m1 <- glm(num.wolves ~ year, family = poisson(link = "identity"), data = wolves)
+```
+
+...but, it errors.
+
+- Why might R be encountering this error?
+
+## 10 years of data
+
+Let's use a 10 year portion of this data from 1995--2005 that looks a little more reasonable as a line to demonstrate first.
+
+```{r}
+wolves_sub <- wolves %>% filter(year >= 1995 & year <= 2005)
+```
+```{r echo=FALSE}
+wp <- ggplot(wolves_sub, aes(x = year, y = num.wolves)) +
+  geom_point() + scale_x_continuous(breaks = pretty_breaks())
+wp
+```
+
+## Use an identity link to fit a straight line
+
+```{r}
+m1 <- glm(num.wolves ~ year_post, family = poisson(link = "identity"), data = wolves_sub)
+coef(m1)
+```
+
+- Essentially impossible.  Predicts -1002 wolves in 1982!
+
+```{r echo=FALSE}
+pred_data <- tibble(year = wolves_sub$year, num.wolves = predict(m1, type = "response"))
+
+wp2 <-
+  wp +
+  geom_line(data = pred_data, color = "blue")
+wp2
+```
+
+## Exponential growth
+
+- Most populations do not grow linearly because reproduction is a *rate* that depends on current population.
+- Exponential growth describes unregulated reproduction
+
+$$
+N_{t+1} = \lambda N_t
+$$
+
+where $\lambda$ is the population growth rate.
+
+$$
+\lambda = 1+births-deaths
+$$
+
+If there is no population growth (births = deaths), $\lambda = 1$
+
+
+## Exponential growth
+
+Why exponential?
+
+If you want to know growth at time = t + 2...
+
+$$
+N_{t + 2} = \lambda N_{t + 1}
+$$
+
+$$
+= \lambda\lambda N_t
+$$
+
+$$
+= \lambda^2N_t
+$$
+
+More generally...
+
+$$
+N_{t+T} = \lambda^TN_t
+$$
+
+Or if you start at year 0, then it's just
+
+$$
+N_T = \lambda^TN_0
+$$
+
+So N at year 50 = 
+
+$$
+N_{50} = \lambda^{50}N_0
+$$
+
+## Exponential growth
+
+If lambda < 1
+
+```{r fig.width=7}
+births = 0.05
+deaths = 0.15
+lambda = 1 + births - deaths
+N0 = 50 #population size at year 0
+
+fake_pop <- tibble(
+  year = 0:50,
+  N = N0 * lambda ^ year
+)
+ggplot(fake_pop, aes(x = year, y = N)) +
+  geom_line() +
+  labs(subtitle = paste("lambda =", lambda)) +
+  
+ggplot(fake_pop, aes(x = year, y = log(N))) +
+  geom_line()
+#the patchwork package allows you to make two-panel plots like this
+```
+
+## Exponential growth
+
+When lambda > 1
+
+```{r fig.width=7}
+births = 0.15
+deaths = 0.05
+lambda = 1 + births - deaths
+N0 = 50 #population size at year 0
+
+fake_pop <- tibble(
+  year = 0:50,
+  N = N0 * lambda ^ year
+)
+
+ggplot(fake_pop, aes(x = year, y = N)) +
+  geom_line() +
+  labs(subtitle = paste("lambda =", lambda)) +
+
+ggplot(fake_pop, aes(x = year, y = log(N))) +
+  geom_line()
+#the patchwork package allows you to make two-panel plots like this
+```
+
+## Use log-link instead
+A line with a log-link is an exponential curve when back-transformed!
+
+$$
+log(y) = \beta_0 + \beta_1x_1
+$$
+
+$$
+y = e^{\beta_0} \times e^{\beta_1x_1}
+$$
+Our model more specifically:
+
+$$
+ln(N_T) = \beta_0 + \beta_1T
+$$
+
+So:
+
+$$
+N_T = e^{\beta_0} \times e^{\beta_1 T}
+$$
+
+$$
+N_T = e^{\beta_0} \times (e^{\beta_1}) ^T
+$$
+
+Compare with exponential growth equation
+
+## Fit exponential growth model
+
+We can use a log-link to fit an exponential growth model to the wolf data.
+
+```{r}
+m_exp <- glm(num.wolves ~ year_post, 
+             family = poisson(link = "log"), data = wolves)
+exp(coef(m_exp))
+```
+
+$$
+N_T = 19.615 \times1.177^T
+$$
+
+- The backtransformed coefficient for `year_post` = $\lambda$, the population growth rate
+- The backtransformed intercept is the estimate for $N_0$, the number of wolves at `year_post` = 0
+
+```{r echo=FALSE}
+wolfplot +
+  geom_line(aes(y = predict(m_exp, type = "response")), color = "darkgreen")
+```
+
+Hmm... doesn't look quite right.
+
+## Density-dependent growth
+
+Exponential growth isn't realistic over the long term for most populations, even under favorable conditions.
+
+Density dependent factors:
+
+  - limited space
+  - limited food
+  - faster disease spread
+  - agression
+  - emigration
+  - etc.
+  
+These things limit exponential growth.  We can model this a couple of ways.
+
+
+## Observation error vs. process error
+
+Observation error:
+
+- year to year variation (from predicted results) is due to imperfect estimation of wolves (undercount some years, overcount others).
+
+Process error:
+
+- Population growth rate depends on population size
+- We can model process error by estimating $N_{t+1}/N_{t}$ (a rate).
+
+## Process error using offset
+
+We used offsets previously to estimate rates of bee visitation (bees/hour)
+
+Here, we "hack" a glm to use offsets to fit a process error model.  That is, we want to model a rate of increase relative to the previous year.
+
+$$
+log(N_{t+1}/N_{t}) = \beta_0
+$$
+
+$$
+log(N_{t+1}) = \beta_0 + log(N_{t})
+$$
+
+## Lagged data
+
+We can create a column of the number of wolves in the previous year with the `lag()` function.
+
+```{r}
+wolves2 <- wolves %>%
+  mutate(num.prev = lag(num.wolves)) %>%
+  select(year, year_post, num.wolves, num.prev)
+head(wolves2)
+```
+
+We want to remove the first year, where we don't have any data on the previous year's number of wolves.  `is.na(x)` returns `TRUE` if something is `NA`, but we want the opposite of that, so we negate it with `!`
+
+```{r}
+wolves2 <- wolves2 %>% filter(!is.na(num.prev))
+head(wolves2)
+```
+
+## Fit process error model
+
+```{r}
+m_process <- glm(num.wolves ~ 1, offset = log(num.prev),
+                 family = poisson(link = "log"), data = wolves2)
+
+exp(coef(m_process))
+```
+
+This is the yearly rate of increase (on a log scale).
+
+$$
+N_{t+1} = e^{\beta_0} \times N_{t}
+$$
+So, if there are 13 wolves in 1985, how many would it predict in 1986?
+
+```{r}
+1.108238 * 13
+```
+
+```{r echo=FALSE}
+ggplot(wolves2, aes(x = year, y = num.wolves)) +
+  geom_point() +
+  geom_line(aes(y = predict(m_process, type = "response")), color = "orange")
+```
+
+## Ricker model
+
+A Ricker model takes carrying capacity into account and allows growth rate to change as the population increases.
+
+$$
+N_{t+1}=N_{t}e^{r\left(1-{\frac {N_{t}}{K}}\right)}
+$$
+
+where $r = ln(\lambda)$ and $K$ is the carrying capacity
+
+
+## Hacking a Ricker model GLM
+
+This is the final model:
+
+```{r}
+m_rick <- glm(num.wolves ~ num.prev, offset = log(num.prev),
+              family = poisson, data = wolves2)
+```
+
+
+
+Here's how we got there:
+
+$$
+log(N_{t+1})=log(N_{t}) + log\left( (e^r)^{\left(1-{\frac {N_{t}}{K}}\right)}\right)
+$$
+
+$$
+log(N_{t+1})=log(N_{t}) + log (e^r)\times{\left(1-{\frac {N_{t}}{K}}\right)}
+$$
+
+$$
+log(N_{t+1})= r-\frac{r}{K}N_{t} + \textrm{offset}[log(N_{t})]
+$$
+
+
+$$
+ln(N_{t+1}) = \beta_0 + \beta_1x_1
+$$
+
+$\beta_0 = r$
+
+```{r}
+coef(m_rick)[1]
+```
+
+$\lambda = exp(\beta_0)$
+
+```{r}
+exp(coef(m_rick)[1])
+```
+
+$\beta_1 = -r/K$
+$K = -\beta_0/\beta_1$
+
+```{r}
+-coef(m_rick)[1]/coef(m_rick)[2]
+```
+
+
+```{r}
+ggplot(wolves2, aes(x = year, y = num.wolves)) +
+  geom_point() +
+  geom_line(aes(y = predict(m_process, type = "response")), color = "orange") +
+  geom_line(aes(y = predict(m_rick, type = "response")), color = "brown")
+```
+
+## Quadratic model
+
+A quadratic relationship between $ln(N_T)$ and $T$ with a log-link and observation error approximates the Ricker model
+
+$$
+log(N_T) = \beta_0 + \beta_1T + \beta_2T^2
+$$
+
+```{r}
+m_quad <- glm(num.wolves ~ year_post + I(year_post^2), 
+              family = poisson, data = wolves2)
+coef(m_quad)
+```
+
+NOTE: `I()` = "inhibit interpretation" = "literally do the math, don't mistake this for glm code!"
+
+```{r echo=FALSE}
+wolfplot2 +
+  geom_line(aes(y = predict(m_quad, type = "response")), color = "purple")
+```
+
+
+## Model competition
+
+```{r}
+nrow(wolves) == nrow(wolves2)
+```
+
+That's no good because we need to all models to the *same* data.
+
+Re-fit exponential growth model using `wolves2` (alternatively, know what wolf population was in 1994).
+
+```{r}
+m_exp2 <- glm(num.wolves ~ year_post, family = poisson, data = wolves2)
+```
+
+```{r}
+AIC(m_exp2, m_process, m_rick, m_quad)
+```
+
+
