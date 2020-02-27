@@ -1,0 +1,266 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(tidyverse)
+library(here)
+library(readxl)
+library(cowplot)
+library(patchwork)
+library(scales)
+library(bbmle)
+library(lmtest)
+```
+
+# Herbarium data
+
+from:
+Meineke EK, Classen AT, Sanders NJ, Jonathan Davies T (2018) Herbarium specimens reveal increasing herbivory over the past century. J Ecol 1–13. doi: 10.1111/1365-2745.13057
+
+```{r}
+herb <- read_excel(here("data", "Exam 1", "herbarium.xlsx"))
+```
+```{r}
+herb2 <- 
+  herb %>% 
+  mutate(herbivory_bin = ifelse(herbivory == 0, 0, 1)) %>% 
+  mutate(decade = floor(year/10) * 10) %>% 
+  filter(state %in% c("Massachusetts", "New Hampshire", "Maine")) %>%
+  group_by(decade, state) %>% 
+  summarize(herbivory = sum(herbivory_bin),
+            specimens = n()) %>% filter(decade > 1920 & decade <= 1960)
+
+herb2
+```
+
+```{r}
+m0 <- glm(cbind(herbivory, specimens - herbivory) ~ 1, family = binomial, data = herb2)
+coef(m0) %>% plogis()
+```
+
+```{r}
+m2 <- glm(cbind(herbivory, specimens - herbivory) ~ -1 + as.factor(decade), family = binomial, data = herb2)
+coef(m2) %>% plogis()
+confint(m2) %>% plogis()
+```
+
+
+```{r}
+m1 <- glm(cbind(herbivory, specimens - herbivory) ~ -1 + state, family = binomial, data = herb2)
+coef(m1) %>% plogis()
+confint(m1) %>% plogis()
+```
+
+
+## Simple gall parasitism data
+
+```{r}
+galls <- tibble(size = c("<12.5", "13.0-17.5", ">18.0"),
+                successes = c(13, 9, 1),
+                failures = c(2, 3, 15))
+galls
+write_csv(galls, here::here("exams", "exam1", "data", "eurytoma.csv"))
+```
+
+```{r}
+m0 <- glm(cbind(successes, failures) ~ 1, family = binomial, data = galls)
+coef(m0) %>% plogis
+```
+
+```{r}
+m1 <- glm(cbind(successes, failures) ~ -1 + size, family = binomial, data = galls)
+coef(m1) %>% plogis()
+lmtest::lrtest(m0,m1)
+confint(m1) %>% plogis()
+```
+
+
+# Gabby's branch dieback data
+
+Tufts graduate student Gabriella Garcia studies coffee production in Costa Rica.  Coffee plants are "alternate bearing", meaning that if they have high reproduction (coffee fruits containing coffee beans) in one year, then they will have low reproduction in the next year.  One possible reason for this is coffee plants may deplete their resources making fruits and this could result in branch dieback which leaves less room for production of new coffee fruits the next year. Gabriella estimated the number of fruits on coffee plants and tracked how many branches lived or died across several farms.  Here is a summarized version of her data.
+
+```{r}
+coffee_raw <- read_csv(here("exams", "exam1", "data", "manip_dieback_Eric.csv"))
+coffee <-
+  coffee_raw %>%
+  filter(!is.na(binom_dieback)) %>% 
+  group_by(farmer,orientation) %>% 
+  summarize(jun_frt = mean(jun_frt, na.rm = TRUE) %>% round(1),
+            dieback = sum(binom_dieback, na.rm = TRUE),
+            total_branches = n(),
+            alive = total_branches - dieback,
+            frt_per_branch = round(jun_frt/total_branches, 2)) %>% 
+  mutate(plot = orientation %>% as.factor() %>% as.numeric() %>% as.character()) %>% 
+  select(farmer, jun_frt, dieback, alive, total_branches) 
+write_csv(coffee, here("exams", "exam1", "data", "coffee.csv"))
+```
+
+a. Use a LRT to test if the proportion of dieback has a linear relationship to average fruit production in the previous year. Report and justify your conclusion.
+
+```{r}
+m0 <- glm(cbind(dieback, alive) ~ 1, family = binomial, data = coffee)
+
+m_frt <- glm(cbind(dieback, alive) ~ jun_frt, family = binomial, data = coffee)
+lrtest(m_frt, m0)
+
+
+m_farmer <- glm(cbind(dieback, alive) ~ -1+farmer, family = binomial, data = coffee)
+lrtest(m_farmer, m0)
+confint(m_farmer) %>% plogis()
+
+ICtab(m0, m_frt, m_farmer)
+AIC(m0, m_frt, m_farmer)
+```
+
+b. An alternate hypothesis to explain these data is that branch dieback depends mostly on farmer practices. Use AIC to compare a null model (one dieback proportion), the model you fit in part a, and a model that estimates a different dieback proportion for each farmer.  Report the AIC for each model, state and justify your conclusions.
+
+
+c. If these coffee farms were randomly sampled from all the coffee farms in Costa Rica, and the coffee plants were randomly sampled within each farm, what would the scope of inference be for this experiment?
+
+
+
+# Nick's bees
+
+In early spring, when floral resources can be scarce and unpredictable, queen bumble bees emerge from hibernation and start colonies underground. To understand how nutrition and body size jointly affect the probability of establishment, I caught wild queens (Bombus impatiens) and measured their body size, maintained them in lab conditions with either a high or low food treatment, and recorded whether or not they started a colony. 
+
+
+```{r}
+bees_raw <- read_csv(here("exams", "exam1", "data", "Establishment.csv"))
+```
+```{r}
+bees_raw
+```
+
+
+# Western Monarch Thanksgiving Count
+
+West of the Rocky Mountains, Monarch butterflies migrate to the California coast to overwinter.  The Xerces Society leads a citizen science effort to monitor the abundance of Monarchs in the west by having volunteers count Monarchs at overwintering sites over Thanksgiving weekend.  The population declined from 1.2 million in 1997 to only about 59,000 in 2009. From 2010 to 2016 the population appears to have increased, however the number of sites monitored also increased.
+
+
+
+```{r}
+monarchs_sub <- read_csv(here("exams", "exam1", "data", "monarchs.csv"))
+```
+
+a. Write the glm() code you would use to model a change in the number of monarch butterflies per site over time using an offset to take into account differences in sampling effort for each year.
+
+
+
+
+```{r}
+m2 <- glm(count_total ~ year, family = poisson, data = monarchs_sub)
+car::Anova(m2)
+coef(m2)
+exp(-216.56 + 0.1137*2012)
+
+
+m3 <- glm(count_total ~ year, offset = log(num_sites), family = poisson, data = monarchs_sub)
+coef(m3)
+exp(coef(m3)[1] + coef(m3)[2]*2012)
+car::Anova(m3)
+
+m0 <- glm(count_total ~ 1, offset = log(num_sites), family = poisson, data = monarchs_sub)
+
+AIC(m3, m0)
+```
+
+```{r}
+bflies <-
+  ggplot(monarchs_sub, aes(x = year, y = count_total)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous("Monarchs",
+                     labels = label_comma()) +
+  # scale_x_continuous("Year") +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+sites <-
+  ggplot(monarchs_sub, aes(x = year, y = num_sites)) +
+  geom_col(width = 0.5) +
+  labs(x = "Year", y = "Sites Surveyed") +
+  theme_bw()
+
+bflies/sites
+
+save_plot(here("exams", "exam1", "monarchfig.png"),bflies/sites)
+```
+
+
+# Handedness in parrots
+
+In 1938, Herbert Friedman and Malcom Davis wondered if parrots tended to be right or left "handed".  That is, do they tend to prefer using their right or left foot to manipulate food.  They gave parrots apple slices and noted which foot they used to pick them up.  Each bird was tested 20 times.
+
+```{r}
+parrots <- tibble(name = c("Charlie", "Lara", "Oliver", "Iago"),
+                  left = c(14, 13, 19, 17), right = 20-left) 
+
+parrots2 <- tibble(name = c("Charlie", "Lara", "Polly"),
+                   left = c(14, 13, 12),
+                   right = 20-left)
+parrots 
+parrots2
+# write_csv(parrots2, here("exams", "exam1", "data", "parrots.csv"))
+```
+
+*parrots and data are real, names were changed to protect the innocent.
+
+
+a. If parrots don't have a preference for which foot they use, then the probability of using their left foot should be 0.5.  For Charlie, calculate the probability of him using his left foot 14 out of 20 times, given no preference.  Repeat this for each parrot using the number of times they each used their left foot.
+
+```{r}
+parrots2<-
+  parrots2 %>% 
+  mutate(logprob = dbinom(left, 20, 0.5, log = TRUE),
+         prob = exp(logprob))
+parrots2
+```
+
+b. Given a model of no preference (p = 0.5), calculate a likelihood for the entire dataset.
+
+```{r}
+l1 <- prod(parrots2$prob)
+l1
+```
+
+
+c. Calculate the MLE probability of using the left foot for the entire dataset.  Repeat your likelihood calculations for this model (p = MLE p).
+
+```{r}
+mlep <- sum(parrots2$left) / sum(parrots2$left + parrots2$right)
+mlep
+parrots2 <-
+  parrots2 %>%
+  mutate(logprob2 = dbinom(left, 20, mlep, log=TRUE))
+l2 <- sum(parrots2$logprob2) %>% exp()
+l2
+```
+
+d. Use Bayes' theorem to calculate the probability of each model, given the data, assuming that these are the only two models and using uninformative priors.
+
+```{r}
+prior1 <- prior2 <- 0.5
+pdata = l1 * prior1 + l2 * prior2
+post1 = (l1 * prior1) / pdata
+post2 = 1 - post1
+post1
+post2
+```
+
+
+e. In 2011, Brown and Magat published a study on 322 parrots in *Biology Letters* where 47% of the parrots were left-handed.  Use this information to inform prior probabilities for the 1938 data set.  That is, set the prior probability for the second model (p = MLE p) to 0.47.  Again, assume that “left-handed” (p = MLE p) and “no preference” (p = 0.5) are the only possible models (We’re ignoring the possibility of right-handed parrots for the sake of simplicity!). Re-calculate the probability of each model, given the 1938 data, using these informative priors.
+
+```{r}
+prior2 <- 0.47
+prior1 = 1-prior2
+pdata = l1 * prior1 + l2 * prior2
+post1 = (l1 * prior1) / pdata
+post2 = 1 - post1
+post1
+post2
+```
+
+
+
