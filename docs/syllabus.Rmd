@@ -44,7 +44,7 @@ Emerging issues in health and environmental sciences require an understanding of
 
 ### Outline of Course Content
 
-Schedule is subject to change.
+Schedule is subject to change. [Revised on Feb 27]
 
 ```{r echo=FALSE}
 options(knitr.kable.NA = '')
