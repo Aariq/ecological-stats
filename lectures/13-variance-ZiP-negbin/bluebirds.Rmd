@@ -1,0 +1,201 @@
+---
+title: "Zero-inflated Poisson Analysis of Bluebird Counts"
+subtitle: "BIO 133"
+author: "Eric R. Scott"
+output: 
+  html_notebook: 
+    toc: yes
+    toc_float: yes
+---
+
+# Packages
+
+Packages you'll need:
+
+```{r}
+library(tidyverse)
+library(here) # for here()
+library(pscl) #for zero-inflated poisson
+library(MASS) #for rnegbin() and other useful functions
+select <- dplyr::select
+#optional:
+library(maps)
+library(mapproj)
+```
+
+# Data
+
+```{r}
+# data for map
+new_england <- map_data('state', region = c('massachusetts', 'new hampshire', 'vermont', 'maine', 'connecticut', 'rhode island'))
+
+# bluebirds.csv on canvas
+birds2 <- read_csv(here("data", "bluebirds.csv"))
+head(birds2)
+```
+
+
+# Inspect data
+
+## Map
+
+Totally optional.  Dont' worry if you can't get it to work.
+
+```{r}
+ggplot() +
+  geom_polygon(data = new_england, aes(x = long, y = lat, group = group),
+               color = "black", #lines
+               fill = "lightgreen") + #area
+  geom_point(data = birds2, aes(x = Longitude, y = Latitude, size = count/hours)) +
+  coord_map() +
+  theme_minimal() +
+  labs(title = "2013 Bluebirds", x = "longitude", y = "latitude", size = "Counts/hr")
+```
+
+## Plot of zeros
+
+The zeros in the data might be because bluebirds have migrated south for the winter during the Christmas bird count.  Or, it could be that we just didn't happen to see any bluebirds in that location (but they are around). Does the probability of seeing a bluebird vary with lattitude?
+
+```{r}
+#create column of 1's and 0's (TRUE is converted to 1 and FALSE is converted to 0)
+birds2 <- birds2 %>% 
+  mutate(zero = as.numeric(count == 0)) 
+
+#plot
+migration_plot <- ggplot(birds2, aes(x = Latitude, y = zero)) +
+  geom_point(alpha = 0.5) #make points slightly transparent to see overplotting better.
+migration_plot + labs(y = "probability of migration (?)")
+```
+
+
+## Do we think these counts might be overdispersed?
+
+```{r}
+m1 <- glm(count ~ Latitude, offset = log(hours), family = poisson, data = birds2)
+summary(m1)
+```
+
+# Regular Poisson
+
+Fit a poisson GLM with an offset of log(hours) to estimate a trend in birds per hour with lattitude.
+
+```{r}
+m_pois <- glm(count ~ Latitude, offset = log(hours), family = poisson, data = birds2)
+```
+
+What is the expected number of birds per hour?  Per 100 hours?
+
+# Zero-inflated Poisson
+
+Fit three ZiP GLMs:
+
+1. Latitude affects both count and zeros
+
+```{r}
+m_zip1 <- zeroinfl(count ~ Latitude|Latitude, offset = log(hours), data = birds2)
+```
+
+2. Latitude affects only zeros (i.e. probability that birds have migrated)
+
+```{r}
+m_zip2 <- zeroinfl(count ~ 1|Latitude, offset = log(hours), data = birds2)
+```
+
+3. Latitude affects only count (i.e. average #birds per hour)
+
+```{r}
+m_zip3 <-zeroinfl(count ~ Latitude|1, offset = log(hours), data = birds2)
+```
+
+```{r}
+AIC(m_zip1, m_zip2, m_zip3, m_pois)
+```
+
+```{r}
+summary(m_zip1)
+```
+
+
+
+# Negative Binomial Distribution
+
+Try changing theta and see what it does:
+
+```{r}
+df <- tibble(x = rnegbin(1000, mu = 10, theta = 1))
+ggplot(df, aes(x)) +
+  geom_bar()
+```
+
+## Fit a Negative Binomial GLM
+
+Fit a negative binomial glm with glm.nb() (also estimating trend with latitude)
+
+```{r}
+m_nb <- glm.nb(count ~ Latitude + offset(log(hours)), data = birds2)
+
+AIC(m_zip1, m_zip2, m_zip3, m_pois, m_nb)
+```
+
+What is the expected number of birds per hour?
+
+
+# Zero-inflated Negative Binomial
+
+If there is time, fit the three models you did for the zero-inflated poisson, but with a zero-inflated negative binomial error distribution.
+
+1. Latitude affects both count and zeros
+
+```{r}
+m_zinb1 <- zeroinfl(count ~ Latitude|Latitude, offset = log(hours), dist = "negbin", data = birds2)
+```
+
+2. Latitude affects only zeros (i.e. probability that birds have migrated)
+
+```{r}
+m_zinb2 <- zeroinfl(count ~ 1|Latitude, offset = log(hours), dist = "negbin", data = birds2)
+```
+
+3. Latitude affects only count (i.e. average #birds per hour)
+
+```{r}
+m_zinb3 <-zeroinfl(count ~ Latitude|1, offset = log(hours), dist = "negbin", data = birds2)
+```
+
+
+## Model comparison
+
+Use AIC to compare the models you fit
+
+```{r}
+AIC(m_zip1, m_zip2, m_zip3, m_pois, m_nb, m_zinb1, m_zinb2, m_zinb3)
+bbmle::ICtab(m_zip1, m_zip2, m_zip3, m_pois, m_nb, m_zinb1, m_zinb2, m_zinb3)
+```
+
+```{r}
+summary(m_zinb1)
+```
+
+
+## Plot migration probability as function of lattitude
+
+Use the coefficients from the binomial part of a winning zero-inflated model to write the equation of the line describing the relationship between probability of birds being present and lattitude.
+
+
+```{r}
+pred_data <-
+  tibble(
+  Lattitude = seq(min(birds2$Latitude), max(birds2$Latitude), 0.05), # x-values
+  prob = <your code> #y-values
+  )
+```
+
+Plot the predicted line on our presence/absence plot from before
+
+```{r}
+migration_plot +
+  geom_line(data = pred_data, aes(x = Lattitude, y = prob)) +
+  labs(y = "probability of migration")
+```
+
+

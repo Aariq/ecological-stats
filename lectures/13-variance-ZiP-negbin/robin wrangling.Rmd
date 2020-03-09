@@ -1,0 +1,94 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(here)
+library(janitor)
+```
+
+```{r}
+robin_raw <- read_csv(here("CurrentYearResultsBySpecies.csv"), skip = 2) %>% clean_names()
+anyNA(robin_raw$no_observed)
+robin <- robin_raw %>%
+  filter(!is.na(no_observed)) %>% 
+  mutate(count = (no_observed)) %>% 
+  mutate(hours = (number_by_party_hours / count)^-1 %>% round(1)) %>% 
+  select(code, name, latitude, longitude, count, hours)
+
+write_csv(robin, here("data", "robins.csv"))
+
+ggplot(robin, aes(count)) +
+  geom_bar(fill = "grey", color = "black") +
+  scale_x_binned(show.limits = TRUE ) +
+  labs(y = "frequency")
+
+```
+
+Not actually zero inflated.  No zeroes!!
+
+```{r}
+m1 <- glm(count ~ 1, family = poisson, data = robin)
+exp(coef(m1))
+summary(m1)
+```
+
+VERY overdispersed though
+
+```{r}
+library(MASS)
+m2 <- glm.nb(count ~ 1, data = robin)
+summary(m2)
+```
+
+Theta parameter estimates dispersion
+
+```{r}
+AIC(m1, m2)
+```
+
+
+What about the offset?
+
+glm.nb doesn't take an offset() argument, but there is another way to include offsets.
+
+```{r}
+m3 <- glm(count ~ 1 + offset(log(hours)), family = poisson, data = robin)
+exp(coef(m3))
+```
+
+```{r}
+m4 <- glm.nb(count ~ 1 + offset(log(hours)), data = robin)
+summary(m4)
+exp(coef(m4))
+```
+
+
+## Negative binomial
+
+```{r}
+df <-
+  tibble(
+  one = rpois(1000, 2),
+  two = rpois(1000, 5),
+  three = rpois(1000, 10),
+  four = rpois(1000, 15),
+  five = rpois(1000, 25)
+) %>% 
+  pivot_longer(everything(), names_to = "habitat") %>% 
+  mutate(habitat = fct_inorder(habitat))
+  
+
+source(here("plot_theme.r"))
+combined <- ggplot(df, aes(value)) +
+  geom_bar(stat = "count", aes(y = ..prop..), color = "black", fill = "grey") +
+  labs(x = "# of robins", y = "probability", title = "Combined Poissons") 
+
+combined
+
+sep <- combined + facet_wrap(~habitat, nrow = 1, labeller = label_both)
+sep
+```
+

@@ -28,3 +28,8 @@
 
 # Microsoft working files
 ~$*
+
+*.icloud
+*.nb.html
+*.pages
+*.numbers

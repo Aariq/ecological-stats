@@ -1,0 +1,98 @@
+---
+title: "Population growth recap"
+author: "Eric Scott"
+date: "3/2/2020"
+output: powerpoint_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+source(here("plot_theme.R"))
+library(scales)
+
+wolves <- read_csv(here("data", "NRMwolves.csv"))
+head(wolves)
+wolves <- 
+  wolves %>%
+  mutate(year_post = year - 1982,
+         year = as.integer(year),
+         num.prev = lag(num.wolves)) %>% 
+  filter(!is.na(num.prev)) %>% 
+  select(year, year_post, num.wolves, num.prev)
+```
+
+## Last time
+
+Before the first exam, we talked about 4 ways of modeling population growth with GLMs:
+
+(0. linear growth with identity link)
+1. Exponential growth with observation error (log-link Poisson)
+2. Exponential growth with process error (intercept only with offset of $N_{t-1}$)
+3. Density dependent growth with observation error (log-link quadratic Poisson)
+4. Density dependent growth with process error (Ricker model)
+
+## Interpreting parameters
+
+```{r}
+wolves_sub <- wolves %>% filter(year >= 1995 & year <= 2005)
+m1 <- glm(num.wolves ~ year_post,
+          family = poisson(link = "identity"), data = wolves_sub)
+coef(m1)
+```
+
+change in number of wolves/year
+
+```{r}
+m1b <- glm(num.wolves ~ year_post,
+           family = poisson(link = "log"), data = wolves_sub)
+exp(coef(m1b))
+```
+
+$\lambda$ (population growth rate)
+
+For a single time step $\lambda = N_{t+1}/N_t$
+
+Fitting a line to data:
+
+- $\operatorname{E}[Y_i] = \beta_0 + \beta_1x_1$
+- $Y_1 \sim \textrm{Poisson}(\lambda)$  This is not the same $\lambda$ as population growth rate!
+
+## Link functions change the shape of the line
+
+*Similar* to transforming data, but rather than transforming response variable from raw data, transforms *expected* values
+
+Lee's table
+
+```{r echo=FALSE}
+wp <-
+  ggplot(wolves_sub, aes(x = year, y = num.wolves)) +
+  geom_point() +
+  geom_line(aes(y = predict(m1, type = "response")), color = "blue") +
+  geom_line(aes(y = predict(m1b, type = "response")), color = "darkgreen") +
+  scale_x_continuous(breaks = pretty_breaks())
+wp
+```
+
+
+## Model definition review
+
+All models are defined by:
+
+- Equation for the expected value, or mean (e.g. $\operatorname{E}[Y_i] = \beta_0 + \beta_1x_1$)
+- Probability distribution for the distribution of events around this mean---the "errors" or residuals. (e.g. $Y_1 \sim \textrm{Poisson}(\lambda)$)
+
+### Assumptions about errors
+
+When we use `family = poisson`, we are making an assumption that the errors (also called **residuals**) follow a Poisson distribution. Similarly, when we use `family = binomial` we are assuming that errors follow a binomial distribution.
+
+If these assumptions are violated (errors don't follow these distributions) then our p-values and parameter estimates may be unreliable.
+
+
+
+
+

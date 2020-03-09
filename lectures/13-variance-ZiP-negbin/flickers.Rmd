@@ -1,0 +1,246 @@
+---
+title: "Zero-inflated Poisson Analysis of Flicker Counts"
+subtitle: "BIO 133"
+author: "Eric R. Scott"
+output: 
+  html_notebook: 
+    toc: yes
+    toc_float: yes
+---
+
+# Packages
+
+```{r}
+library(tidyverse)
+library(here) # for here()
+library(pscl) #for zero-inflated poisson
+library(MASS) #for rnegbin() and other useful functions
+
+# the MASS package has a function `select()` just like dplyr in the tidyverse.  If you want to always use the dplyr version you could do:
+
+select <- dplyr::select
+
+#for map (optional):
+library(maps)
+library(mapproj)
+```
+
+# Data
+
+```{r}
+# data for map
+new_england <- map_data('state', region = c('massachusetts', 'new hampshire', 'vermont', 'maine', 'connecticut', 'rhode island'))
+
+birds <- read_csv(here("data", "NE_flickers.csv"))
+head(birds)
+```
+
+# Fun code for making a map with ggplot2
+
+```{r}
+ggplot() +
+  geom_polygon(data = new_england, aes(x = long, y = lat, group = group),
+               color = "black", #lines
+               fill = "lightgreen") + #area
+  geom_point(data = birds, aes(x = Longitude, y = Latitude, size = Count/hours)) +
+  coord_map() +
+  theme_minimal() +
+  labs(title = "2013 Northern Flickers", x = "longitude", y = "latitude", size = "Counts/hr")
+```
+
+# Simple poisson glm
+
+```{r}
+m1 <- glm(Count ~ 1, family = poisson, data=birds)
+# expected # of flickers, simple poisson model:
+coef(m1) # ... on a log scale
+exp(coef(m1)) # .... back-transformed
+```
+
+## Expected distribution if simple Poisson
+
+```{r}
+tibble(x = rpois(10000, exp(coef(m1)))) %>% #generate random numbers
+  ggplot() +
+  #plot as proportion rather than count with stat="count" and y = ..prop..
+  geom_bar(stat = "count", aes(x, y= ..prop.., group = 1),
+           fill = "grey", color = "black") +
+  theme_bw() +
+  coord_cartesian(xlim = c(0, 80)) +
+  labs(y = "probability", x = "# birds per site")
+```
+
+##  Actual distribution
+
+Plot the data as a histogram / bar chart
+
+```{r}
+ggplot(birds, aes(Count)) +
+  geom_bar(color = "black", fill = "grey") +
+  theme_bw() +
+  coord_cartesian(xlim = c(0, 80)) +
+  labs(y = "frequency", x = "# birds per site")
+```
+
+# Zero-inflated Poisson GLM
+
+```{r}
+m2 <- zeroinfl(Count ~ 1, data = birds)
+coef(m2)
+```
+
+```{r}
+plogis(coef(m2)[2]) 
+```
+
+75% probability habitat is unsuitable
+
+```{r}
+exp(coef(m2)[1]) # expected # of flickers, in suitable sites
+```
+
+23.92 = expected # of flickers, in suitable sites
+
+## Expected distribution if ZiP 
+
+75% zeros, 25% draws from poisson with mean of 23.9
+
+```{r}
+zip_pred_a = rep(0, 75000) #zeroes
+zip_pred_b = rpois(25000, exp(coef(m2)[1])) #poisson
+zip_pred = data.frame(x = c(zip_pred_a, zip_pred_b))
+
+ggplot(zip_pred) +
+  geom_bar(stat = "count", aes(x, y= ..prop.., group = 1),
+           fill = "grey", color = "black") +
+  theme_bw() +
+  coord_cartesian(xlim = c(0, 80)) +
+  labs(y = "probability", x = "# birds per site")
+```
+
+Variance higher than mean, because this isn't just Poisson:
+
+```{r}
+mean(zip_pred$x)
+var(zip_pred$x)
+```
+
+## Adding an offset
+
+one more possible source of sampling error: hours of observation
+
+```{r}
+head(birds)
+#does number of birds increase with search effort?
+ggplot(birds, aes(x = hours, y = Count)) + geom_point() +
+  labs(x = "hours of observation", y = "# birds counted")
+```
+
+Distribution of counts per 100 hours:
+
+```{r}
+birds <- birds %>%
+  mutate(count_per_hr = Count/hours)
+
+ggplot(birds, aes(count_per_hr*100)) +
+  geom_histogram() +#histogram for continuous data
+  labs(y = "frequency", x = "#birds per 100 hours")
+```
+
+```{r}
+mean(100*birds$count_per_hr)
+var(100*birds$count_per_hr)
+```
+
+Use an offset to model birds per hour
+
+```{r}
+m3 <- zeroinfl(Count ~ 1, offset = log(hours), data = birds)
+coef(m3)
+```
+
+```{r}
+plogis(coef(m3)[2]) # probability habitat is unsuitable
+exp(coef(m3)[1]) # expected # of flickers, per hour of observation
+```
+
+**NOTE**: Using `predict()` gives you just estimated counts. These are the expected *numbers of birds*, **NOT** birds per hour.  The `predict()` function "knows" about the offset.
+
+```{r}
+predict(m3, type = "response") %>% head()
+```
+
+
+## Predicted distribution if ZiP with offset
+
+75% zeros, 25% draws from pooisson with mean of 20.5 birds per 100 hrs (0.205 birds per hour).
+
+```{r}
+zip_pred_c = rep(0, 75000)
+zip_pred_d = rpois(25000, 100*exp(coef(m3)[1]))
+zip_pred2 = tibble(x = c(zip_pred_c, zip_pred_d))
+
+#copy and paste code, change dataframe name:
+ggplot(zip_pred2) +
+  geom_bar(stat = "count", aes(x, y= ..prop.., group = 1),
+           fill = "grey", color = "black") +
+  theme_bw() +
+  coord_cartesian(xlim = c(0, 80)) +
+  labs(y = "probability", x = "# birds per 100 hrs")
+```
+
+```{r}
+mean(zip_pred2$x)
+var(zip_pred2$x)
+```
+
+# Zero-inflated negative binomial
+
+Assumes the count portion of model is not single poisson, but combination of poissons = negative binomial distribution.
+
+```{r}
+m4 <- zeroinfl(Count ~ 1, offset = log(hours), dist = "negbin", data = birds)
+summary(m4)
+```
+
+Negative binomial defined by two parameters: mean and theta, a dispersion parameter.
+Theta = 1.1163
+
+## Predicted distribution if zero-inflated negative binomial
+
+```{r}
+zinb_pred_a = rep(0, 74000) # probability of zeros = 0.74; 74% are 0's
+zinb_pred_b = rnegbin(26000, mu = 100 * exp(coef(m4)[1]), theta = m4$theta) 
+
+# prob of non-zeros = 0.26; 26% are samples from a negative binomial distribution with count and dispersion terms from the fitted model
+
+zinb_pred = tibble(x = c(zinb_pred_a, zinb_pred_b)) # combined data from both  distributions
+
+ggplot(zinb_pred) +
+  geom_bar(stat = "count", aes(x, y= ..prop.., group = 1),
+           fill = "grey", color = "black") +
+  theme_bw() +
+  coord_cartesian(xlim = c(0, 80)) +
+  labs(y = "probability", x = "# birds per 100 hrs")
+```
+
+```{r}
+mean(zinb_pred$x)
+var(zinb_pred$x)
+```
+
+
+# Which model is best?
+
+Use AIC to compete a simple poisson, a zero-inflated poisson, and a zero-inflated negative binomial model with an offset of hours.  Decide which probability distribution best explains the data.
+
+```{r}
+m_pois <- glm(Count ~ 1 + offset(log(hours)), family = poisson, data = birds)
+m_zip <- zeroinfl(Count ~ 1 + offset(log(hours)), data = birds)
+m_zinb <- zeroinfl(Count ~ 1 + offset(log(hours)), dist = "negbin", data = birds)
+
+AIC(m_pois, m_zip, m_zinb)
+```
+
+The zero-inflated negative binomial has the lowest AIC and it the best of the three distributions for modeling the data.
+

@@ -1,0 +1,332 @@
+---
+title: "Variance and Overdispersion"
+author: "Eric Scott"
+date: "2020-03-03"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(glue)
+library(scales)
+library(here)
+source(here("plot_theme.R"))
+
+
+wolves <- read_csv(here("data", "NRMwolves.csv"))
+head(wolves)
+wolves <- 
+  wolves %>%
+  mutate(year_post = year - 1982,
+         year = as.integer(year),
+         num.prev = lag(num.wolves)) %>% 
+  filter(!is.na(num.prev)) %>% 
+  select(year, year_post, num.wolves, num.prev)
+```
+
+## Last time
+
+Before the first exam, we talked about 4 ways of modeling population growth with GLMs:
+
+1. Exponential growth with observation error (log-link Poisson)
+2. Exponential growth with process error (intercept only with offset of $N_{t-1}$)
+3. Density dependent growth with observation error (log-link quadratic Poisson)
+4. Density dependent growth with process error (Ricker model)
+
+## Interpreting parameters
+
+```{r}
+wolves_sub <- wolves %>% filter(year >= 1995 & year <= 2005)
+m1 <- glm(num.wolves ~ year_post,
+          family = poisson(link = "identity"), data = wolves_sub)
+coef(m1)
+```
+
+change in number of wolves/year
+
+```{r}
+m1b <- glm(num.wolves ~ year_post,
+           family = poisson(link = "log"), data = wolves_sub)
+exp(coef(m1b))
+```
+
+$\lambda$ (population growth rate)
+
+Fitting a line to data:
+
+- $\operatorname{E}[Y_i] = \beta_0 + \beta_1x_1$
+- $Y_1 \sim \textrm{Poisson}(\lambda)$  This is not the same $\lambda$ as population growth rate!
+
+## Link functions change the shape of the line
+
+*Similar* to transforming data, but rather than transforming response variable from raw data, transforms *expected* values
+
+Lee's table
+
+```{r echo=FALSE}
+wp <-
+  ggplot(wolves_sub, aes(x = year, y = num.wolves)) +
+  geom_point() +
+  geom_line(aes(y = predict(m1, type = "response")), color = "blue") +
+  geom_line(aes(y = predict(m1b, type = "response")), color = "darkgreen") +
+  scale_x_continuous(breaks = pretty_breaks())
+wp
+```
+
+
+## Model definition review
+
+All models are defined by:
+
+- Equation for the expected value, or mean (e.g. $\operatorname{E}[Y_i] = \beta_0 + \beta_1x_1$)
+- Probability distribution for the distribution of events around this mean---the "errors" or residuals. (e.g. $Y_1 \sim \textrm{Poisson}(\lambda)$)
+
+### Assumptions about errors
+
+When we use `family = poisson`, we are making an assumption that the errors (also called **residuals**) follow a Poisson distribution. Similarly, when we use `family = binomial` we are assuming that errors follow a binomial distribution.
+
+If these assumptions are violated (errors don't follow these distributions) then our p-values and parameter estimates may be unreliable.
+
+## Observation vs. Process error
+
+Observation error models:
+
+- Assume all error due to sampling process
+- Error only effects current observed state of the population
+- Uses a formula to calculate a curve over time
+- Works with missing years of data
+
+Process error models:
+
+- Assumes there is year-to-year variation in the **true** population size
+- "Error" feeds back to affect the future state of the population
+- Predicted counts are some function of count from previous time step
+- Makes sense when counts are exact (e.g. small or lab population)
+- Doesn't work with missing data
+
+# End of recap...
+
+# Variance and mixture models
+
+## Variance
+
+Variance is a measure of the spread of data calculated as the average of the squared differences from the mean.  
+
+**Population** variance:
+
+$$
+\sigma^2 = \frac{\sum(x - \mu)^2}{N}
+$$
+
+**Sample** variance:
+
+$$
+s^2 = \frac{\sum(x - \bar{x})^2}{n-1}
+$$
+
+## Poisson variance
+
+For Poisson distributions, the expected variance is tied to the mean.
+
+- $\mu = \lambda$
+- $\sigma^2 = \lambda$
+
+```{r echo=FALSE}
+lam =5
+df <- tibble(x = 1:40, y = dpois(x, lam))
+ggplot(df, aes(x,y)) +
+  geom_col(fill = "#AEAEAE", color = "black") +
+  geom_vline(xintercept = lam, color = "blue", size = 1) +
+  geom_segment(aes(x = lam - 0.5*lam,
+                   xend = lam + 0.5*lam,
+                   y = ppois(ceiling(lam + 0.5*lam), lam, lower.tail = FALSE),
+                   yend = ppois(ceiling(lam + 0.5*lam), lam, lower.tail = FALSE)),
+               color = "blue", size = 1) +
+  theme_bw() +
+  labs(title = glue("lambda = {lam}"), y = "P(x)")
+```
+
+
+## Sample variance
+
+You can calculate the sample variance of your actual data with the `var()` function in R
+
+```{r}
+x <- rpois(1000, 5)
+
+ggplot(tibble(x), aes(x)) + geom_bar()
+
+var(x)
+```
+
+## Combined distributions
+
+What if our data comes not from one population with a Poisson distribution, but two Poisson distributed populations with different means?
+
+```{r}
+#simulated data that is combination of two poisson distributions.
+y1 <- rpois(500, 3)
+y2 <- rpois(500, 10)
+
+mean(c(y1, y2))
+var(c(y1, y2))
+```
+
+Now, there is more variation than we would predict from a simple Poisson process.
+
+```{r echo=FALSE, fig.width=6}
+data2 <- tibble(y1, y2) %>% 
+  pivot_longer(everything(), names_to = "factor", values_to = "y")
+ggplot(data2, aes(y)) +
+  geom_bar(aes(color = factor))
+```
+
+## GLMs partition variance
+
+If we fit a model that accounts for differences among levels of `factor`, we can account for the increased variance.
+
+```{r}
+m <- glm(y ~ factor, family = poisson(link = "log"), data = data2)
+```
+
+To see this, we need to look at the **residuals** (AKA "errors")
+
+## Working with Residuals
+
+Residuals (aka "errors") are the difference between the data points and the expected/fitted values from a model.
+
+```{r}
+augmented <- 
+  data2 %>% 
+  mutate(fitted = predict(m, type = "response")) %>% 
+  mutate(residuals = y - fitted)
+
+head(augmented)
+```
+
+## Checking residuals
+
+Now that we've accounted for additional sources of variation (two samples from *different* Poisson distributions) let's calculate variance of the **residuals**.
+
+```{r}
+residuals(m, type = "response") %>% var()
+
+mean(c(y1,y2))
+```
+
+Much closer!
+
+If we still had higher variation than expected after accounting for predictor variables, we would say this response variable is **overdispersed**.  Less variation than expected = **underdispersed**
+
+## Deviance residuals
+
+More commonly, **deviance** of a model is used to check for overdispersion.
+
+Deviance is 2 time the log-likelihood ratio of our model compared to a **saturated model**---a model with a different parameter estimate for *every row or datapoint*. It's kind off like asking how much worse our model is compared to one that perfectly predicts the data.
+
+```{r}
+deviance(m)
+```
+
+
+Model *deviance* should be about the same as residual degrees of freedom.
+
+```{r}
+deviance(m) / df.residual(m)
+```
+
+If greater than 1, overdispersion.  If less than 1, underdispersion.
+
+### Formal test for overdispersion:
+
+```{r}
+pchisq(deviance(m), df.residual(m), lower.tail = FALSE)
+```
+
+p > 0.05, so not overdispersed
+
+
+## What if we can't account for overdispersion?
+
+What if departurs from the Poisson distribution are due to things we can't account for? What consequences are there?
+
+```{r}
+df2 <-
+  tibble(y = c(rpois(20, 4), rpois(20, 50), rpois(20, 200)),
+         #factor levels are random, don't correspond to three distributions
+         factor = sample(c("A", "B", "C", "D"), 60, replace = TRUE))
+head(df2)
+```
+
+```{r}
+m2 <- glm(y~factor, family = poisson(), data = df2)
+deviance(m2) / df.residual(m2)
+```
+
+Overdispersed!
+
+## summary of m2
+
+```{r}
+summary(m2)
+```
+
+
+The consequence is that now our p-values are unreliable.  Just look, this **meaningless** factor gives a highly significant p-value!  But don't trust it!
+
+```{r}
+m0 <- glm(y ~ 1, family = poisson(), data = df2)
+lmtest::lrtest(m0, m2)
+```
+
+
+# Dealing with departures from Poisson assumptions
+
+## Northern flickers
+
+```{r eval=FALSE, include=FALSE}
+library(sf)
+library(USAboundaries)
+#tryna figure out maps.  DOn't work yet
+new_england <- 
+  us_states(states = c('massachusetts', 'new hampshire', 'vermont', 'maine', 'connecticut', 'rhode island'))
+class(new_england)
+birds <- read_csv(here("data", "NE_flickers.csv"))
+
+ggplot(birds, aes(x = long, y)) +
+  geom_sf(data = ne)
+```
+
+```{r}
+library(pscl)
+birds <- read_csv(here("data", "NE_flickers.csv"))
+
+m2 <- zeroinfl(Count ~ 1, data = birds)
+m2
+```
+
+## summary
+
+```{r}
+summary(m2)
+```
+
+## ZiP with offset
+
+```{r}
+m3 <- zeroinfl(Count ~ 1, offset = log(hours), data = birds)
+m3
+```
+
+## summary
+
+```{r}
+summary(m3)
+```
+
