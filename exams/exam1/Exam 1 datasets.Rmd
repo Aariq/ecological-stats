@@ -60,7 +60,7 @@ galls <- tibble(size = c("<12.5", "13.0-17.5", ">18.0"),
                 successes = c(13, 9, 1),
                 failures = c(2, 3, 15))
 galls
-write_csv(galls, here::here("exams", "exam1", "data", "eurytoma.csv"))
+# write_csv(galls, here::here("exams", "exam1", "data", "eurytoma.csv"))
 ```
 
 ```{r}
@@ -93,7 +93,7 @@ coffee <-
             frt_per_branch = round(jun_frt/total_branches, 2)) %>% 
   mutate(plot = orientation %>% as.factor() %>% as.numeric() %>% as.character()) %>% 
   select(farmer, jun_frt, dieback, alive, total_branches) 
-write_csv(coffee, here("exams", "exam1", "data", "coffee.csv"))
+# write_csv(coffee, here("exams", "exam1", "data", "coffee.csv"))
 ```
 
 a. Use a LRT to test if the proportion of dieback has a linear relationship to average fruit production in the previous year. Report and justify your conclusion.

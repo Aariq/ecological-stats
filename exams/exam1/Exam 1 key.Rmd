@@ -1,0 +1,215 @@
+---
+title: "Exam 1 Key"
+author: "Eric Scott"
+date: "3/2/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE)
+```
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+library(lmtest)
+```
+
+## 1. Parrots
+
+```{r}
+parrots <- read_csv(here("exams", "exam1", "data", "parrots.csv"))
+```
+
+### a. Use binomial distribution on each parrot
+
+```{r}
+parrots <- parrots %>% 
+  mutate(prob = dbinom(left, 20, 0.5))
+parrots
+```
+
+### b. likelihood
+
+```{r}
+l1 <- prod(parrots$prob)
+l1
+```
+
+### c. MLE proportion & likelihood
+
+MLE proportion = 
+
+```{r}
+mle <- sum(parrots$left)/60
+mle
+```
+
+Likelyhood = 
+
+```{r}
+parrots <- parrots %>% 
+  mutate(mle_prob = dbinom(left, 20, mle))
+parrots
+l2<- prod(parrots$mle_prob)
+l2
+```
+
+`dbinom()` on combined data = 1pt
+
+### d. Bayes' Theorem
+
+```{r}
+p_data = l1*0.5 + l2*0.5
+post1 = l1*0.5/p_data
+post2 = l2*0.5/p_data
+```
+
+$$
+P(data) = 0.000328 \times 0.5 + 0.005095\times 0.5 = 0.002711
+$$
+$$
+P(model_1|data) = \frac{0.000328\times 0.5}{P(data)}
+$$
+
+$$
+P(model_2|data) = \frac{0.005095\times 0.5}{P(data)}
+$$
+
+- $P(model_1|data) =$ `r post1`
+- $P(model_2|data) =$ `r post2`
+
+### e. Informative priors
+
+```{r}
+p2 = 0.47
+p1 = 1-p2
+p_data = l1*p1 + l2*p2
+post1 = l1*p1/p_data
+post2 = l2*p2/p_data
+```
+
+
+$$
+P(data) = 0.000328 \times 0.53 + 0.005095\times 0.47 = 0.002568
+$$
+
+$$
+P(model_1|data) = \frac{0.000328\times 0.53}{P(data)}
+$$
+
+$$
+P(model_2|data) = \frac{0.005095\times 0.47}{P(data)}
+$$
+
+- $P(model_1|data) =$ `r post1`
+- $P(model_2|data) =$ `r post2`
+
+## 2. Galls
+
+```{r}
+galls <- read_csv(here("exams", "exam1", "data", "eurytoma.csv"))
+```
+
+### a. Intercept only
+
+```{r}
+m0 <- glm(cbind(successes, failures) ~ 1, family = binomial, data = galls)
+coef(m0) %>% plogis
+```
+
+### b. Effect of size class
+
+```{r}
+m1 <- glm(cbind(successes, failures) ~ -1 + size, family = binomial, data = galls)
+coef(m1) %>% plogis()
+```
+
+
+### c. LRT
+
+6 points for LRT:
+
+```{r}
+lrtest(m0,m1)
+```
+
+2 pts for correct decision
+2 pts for justification with LRT:
+
+There are significant differences among size classes.  The p-value is less than 0.05
+
+### d. Confidence intervals
+
+```{r}
+confint(m1) %>% plogis()
+```
+
+Parasitism success is significantly lower for galls > 18mm in diameter.  The 95% confidence interval for this size class does not overlap the 95% CIs of the other size classes.
+
+## 3. Coffee dieback
+
+```{r}
+coffee <- read_csv(here("exams", "exam1", "data", "coffee.csv"))
+```
+
+### a. LRT for effect of fruit on dieback
+
+```{r}
+m0 <- glm(cbind(dieback, alive) ~ 1, family = binomial, data = coffee)
+
+m_frt <- glm(cbind(dieback, alive) ~ jun_frt, family = binomial, data = coffee)
+lrtest(m0, m_frt)
+```
+
+1 pt for justification (p > 0.05)
+
+**WRONG**
+
+```{r}
+m0 <- glm(cbind(alive, dieback) ~ 1, family = binomial, data = coffee)
+
+m_frt <- glm(cbind(alive, dieback) ~ 1+jun_frt, family = binomial, data = coffee)
+lrtest(m0, m_frt)
+```
+
+### b. AIC for null, effect of fruit, or effect of farmer
+
+```{r}
+m_farmer <- glm(cbind(dieback, alive) ~ -1+farmer, family = binomial, data = coffee)
+AIC(m0, m_frt, m_farmer)
+```
+
+The model for different dieback proportion for each farmer has the lowest AIC and is the therefore the best model out of the three.
+
+### c. Scope of inference
+
+Costa Rican coffee farms (from this time period, if you're not willing to assume that this year was a random sample of all years).
+
+
+## 4. Monarchs
+
+```{r}
+monarchs_sub <- read_csv(here("exams", "exam1", "data", "monarchs.csv"))
+```
+
+### a. Write the glm
+
+```{r echo=TRUE}
+m1 <- glm(count_total ~ year, offset = log(num_sites), family = poisson, data = monarchs_sub)
+```
+
+### b. Write equation with coefficients
+
+```{r}
+coef(m1)
+```
+
+$$
+log(monarchs/site) = 38.952 - 0.0157*year
+$$
+
+### c. Predict monarchs per site in 2012
+
+```{r}
+exp(coef(m1)[1] + coef(m1)[2]*2012)
+```
