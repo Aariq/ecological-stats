@@ -1,0 +1,151 @@
+---
+title: 'Homework 5: Poisson and ZiP'
+output:
+  word_document: default
+  html_notebook: default
+date: "due Tuesday March 24"
+subtitle: Bio 133
+---
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(include = FALSE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+library(pscl)
+library(scales)
+```
+
+1. Like wolves, grizzly bears have been monitored in the Greater Yellowstone Ecosystem. Use these data (YellowstoneBears.csv on Canvas) to repeat the GLM analyses of population dynamics we conducted for wolves in class.
+
+NOTE: Be sure to fit all the models to the same data. This means fitting the models to data from 1984-2012, in order to use the number of bears in 1983 as a predictor for some models.
+
+```{r}
+bears <- read_csv(here("data", "YellowstoneBears.csv"))
+```
+
+```{r echo=FALSE, fig.height=2.5, fig.width=3, include=TRUE}
+ggplot(bears, aes(x = calendar.year, y = bears.with.cubs)) +
+  geom_line() +
+  geom_point() +
+  labs(y = "# bears with cubs", x = "Year") +
+  scale_x_continuous(n.breaks = 10) +
+  theme_bw() +
+  theme(text = element_text(size = 10))
+```
+```{r}
+bears2 <- bears %>% 
+  mutate(bears.prev = lag(bears.with.cubs)) %>% 
+  filter(year > 0)
+```
+
+  a. Fit an exponential growth model with observation error. Report the parameter estimates from the original (log link) model, and estimated initial population size and population growth rate on a back-transformed scale.
+
+```{r}
+m1 <- glm(bears.with.cubs ~ year, family = poisson, data = bears2)
+coef(m1)
+#estimated initial population:
+exp(coef(m1)[1])
+#estimated growth rate (lambda):
+exp(coef(m1)[2])
+```
+
+  b. Fit an exponential growth model with process error. Report the parameter estimates from the original (log-link) model, and the estimated population growth rate on a back-transformed scale.
+
+```{r}
+m2 <- glm(bears.with.cubs ~ 1 + offset(log(bears.prev)), family = poisson, data = bears2)
+coef(m2)
+exp(coef(m2))
+```
+
+  c. Compete the models with AIC. Report the AICs and degrees of freedom for each model.
+
+```{r}
+AIC(m1, m2)
+```
+
+  d.	Which model is best for these data? Justify your choice. What does this tell us about these monitoring data?
+
+```{r}
+# the winning model is the exponential growth model with observation error.  This tells us that the population is growing exponentially still and that monitoring is likely to be imperfect.  The year-to-year variation is more likely due to over/under-counting than to real population fluctuations.
+```
+
+2. The hairy woodpecker inhabits mature deciduous forests in eastern North America. In New England, forests transition from primarily deciduous to primarily coniferous from south to north. Use Christmas bird counts (HairyWooodpeckers.csv on Canvas) to test if the count increases with latitude, if counts are significantly zero-inflated, and if there is additional unexplained variation in the count data after considering latitude and zero-inflation.
+
+```{r}
+woody <- read_csv(here("data", "HairyWoodpeckers.csv"))
+woody
+```
+
+```{r map, echo=FALSE, message=FALSE, warning=FALSE, include=TRUE}
+library(maps)
+library(mapproj)
+new_england <- map_data('state', region = c('massachusetts', 'new hampshire', 'vermont', 'maine', 'connecticut', 'rhode island'))
+
+woody_map <- ggplot() +
+  geom_polygon(data = new_england, aes(x = long, y = lat, group = group),
+               color = "black", #lines
+               fill = "lightgreen") + #area
+  geom_point(data = woody, aes(x = Longitude, y = Latitude, size = count/hours)) +
+  coord_map() +
+  theme_void() +
+  labs(x = "longitude", y = "latitude", size = "Counts/hr")
+
+woody_plot <-
+  ggplot(woody, aes(y = Latitude, x = count/hours)) +
+  geom_point() +
+  theme_bw() +
+  expand_limits(y = c(min(new_england$lat), max(new_england$lat))) +
+    coord_fixed(ratio = 1.5) +
+  labs(x = "Counts/hr")
+
+library(patchwork)
+woody_plot +
+  woody_map +
+  # plot_layout(widths = c(0.25, 1)) + 
+  plot_annotation(title = "Hairy Woodpecker")
+```
+
+  a. Fit a Poisson GLM to model a relationship between abundance and latitude using hours of survey effort as an offset.  Report the AIC and the model coefficients.
+
+```{r}
+m1 <- glm(count ~ Latitude, offset = log(hours), family = poisson, data = woody)
+AIC(m1)
+coef(m1)
+```
+
+  b. Fit a zero-inflated Poisson model with latitude affecting the count term. Report the AIC and the coefficients for the count part and zero part of the model. Report the estimated proportion of sites with "true" zeroes (that is, the back-transformed coefficient from the binomial portion of the model). Again, use survey effort as an offset.
+  
+```{r}
+m2 <- zeroinfl(count ~ Latitude|1, offset = log(hours), data = woody)
+AIC(m2)
+coef(m2)
+plogis(coef(m2)[3])
+```
+  
+  c. Fit a negative binomial GLM with latitude as a predictor and survey effort as an offset.  Report the AIC and theta, the dispersion parameter.
+  
+```{r}
+library(MASS)
+m3 <- glm.nb(count ~ Latitude + offset(log(hours)), data = woody)
+AIC(m3)
+summary(m3)
+```
+  
+  d. Use AIC to decide which distribution fits the data best.  Explain your reasoning.
+  
+```{r}
+AIC(m1, m2, m3)
+```
+  
+  e. What ecological process might result in the winning model?
+  
+  f. Starting with the winning model from part d, use a likelihood ratio test to test for a trend with latitude. Write a brief summary statement of your results, including the direction of effect of latitude (increasing or decreasing with latitude?).
+  
+```{r}
+m0 <- glm.nb(count ~ 1 + offset(log(hours)), data = woody)
+lmtest::lrtest(m0, m3)
+```
+  
+  
