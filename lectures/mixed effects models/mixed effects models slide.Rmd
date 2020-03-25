@@ -1,0 +1,13 @@
+---
+title: "mixed effect models"
+author: "Eric Scott"
+date: "2/28/2020"
+output: powerpoint_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Reminder
+Hey, remember that you gotta do REML = FALSE in order to compare mixed effects models with GLMs so that the likelihood is the same thing.
