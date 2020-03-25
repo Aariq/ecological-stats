@@ -1,0 +1,554 @@
+---
+title: "Normal Distribution"
+author: "Eric Scott"
+date: "2/17/2020"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+```
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+source(here("plot_theme.R"))
+library(latex2exp)
+library(patchwork)
+```
+
+
+## New Distribution(s): normal
+
+AKA "gaussian"
+
+- Symmetrical
+- Continuous
+- Mean ($\mu$) and variance ($\sigma^2$) are not related
+- unbounded (-inf to inf)
+- application: data with continous variation and approx. symmetrical distribution
+- link = "identity"
+
+## Normal Distributions
+
+```{r}
+df <-
+  tibble(x = seq(-15, 15, 0.1),
+         y1 = dnorm(x, mean = 0, sd = 0.5),
+         y2 = dnorm(x, mean = 0, sd = 1),
+         y3 = dnorm(x, mean = 3, sd = 3)
+  ) %>% 
+  pivot_longer(starts_with("y"), names_to = "dist", values_to = "y")
+
+ggplot(df, aes(x = x, y = y, color = dist)) +
+  geom_line() +
+  scale_color_manual("Parameters", values = c("y1" = "red", "y2" = "darkgreen", "y3" = "blue"),
+                     breaks = c("y1", "y2", "y3"),
+                     labels = lapply(c("$\\mu = 0$, $\\sigma = 0.5$",
+                                       "$\\mu = 0$, $\\sigma = 1$",
+                                       "$\\mu = 3$, $\\sigma = 3$"), TeX)) +
+  scale_x_continuous("Value (e.g. height)") +
+  scale_y_continuous("Probability", limits = c(0,1))
+  labs(x = "Value (e.g. height)", y = "Probability")
+
+```
+
+Variance is **not** a function of the mean (less specific assumptions about generating processes)
+
+## Why so common?
+
+Few ecological variables are strictly Normal, but many are approximately Normal.
+
+1. The sum or average of a large number of samples from **any** distribution will be normally distributed, even if the starting distribution is extremely skewed (not symmetrical)
+
+```{r}
+skewed <- rpois(5000, 2)
+
+ggplot(enframe(skewed), aes(value)) +
+  geom_bar() + 
+  labs(title = TeX("Poisson ($\\lambda = 2$)"),
+       x = "Count", y = "Frequency")
+
+tibble(draw = 1:1000) %>% 
+  mutate(sample_mean = imap_dbl(draw, ~mean(sample(skewed, 100)))) %>% 
+  ggplot(aes(x = sample_mean)) + 
+  geom_histogram(bins = 15) +
+  labs(title = "Means of 100 datapoints sampled from Poisson",
+       x = "Sample means",
+       y = "Frequency")
+  
+
+```
+
+
+Many biological quantities are controlled by multiple additive factors.
+
+E.g. polygenic traits---many genes (and parts of the environment) control height in humans, each one controling some aspect of growth.  Added together, height is continuous.
+
+
+2. The **product** of a large number of samples from any positive (>0) distribution will be **log-normally** distributed.
+
+```{r}
+bimodal <- tibble(x = c(rnorm(1000, 100, 40), rnorm(1000, 200, 100))) %>% filter(x > 0)
+ggplot(bimodal, aes(x)) +
+  geom_histogram(bins = 40) + 
+  labs(title = TeX("Weird Shaped Distribution"),
+       x = "Value", y = "Frequency")
+
+prods <-
+  tibble(draw = 1:1000) %>% 
+  mutate(sample_prod = imap_dbl(draw, ~prod(sample(bimodal$x, 10)))) 
+
+ggplot(prods,aes(x = sample_prod)) + 
+  geom_histogram(bins = 15) +
+  labs(title = "Products of 50 datapoints",
+       x = "Sample products",
+       y = "Frequency")
+
+ggplot(prods, aes(x = log(sample_prod))) + 
+  geom_histogram(bins = 15) +
+  labs(title = "log(Products of 50 datapoints)",
+       x = "log(Sample products)",
+       y = "Frequency")
+```
+
+Thus, if the random variable X is log-normally distributed, then Y=log(X) has normal distirbuttion, A random variable which is log-normally distributed takes only positive real values.
+
+Skewed distributions are particularly common when mean values are low, variances large, and values cannot be negative. E.g. % area of tea leaves damaged by leafhoppers.
+
+```{r echo=FALSE}
+hoppers <- read_rds(here("data", "2017_treatment_data.rds"))
+ggplot(hoppers, aes(mean_percent_damage)) + geom_histogram(bins = 15) +
+  labs(x = "% damaged leaf area", y = "frequency")
+```
+
+```{r echo=FALSE}
+knitr::include_graphics(here("lectures", "14-normal distribution and factorial experiments", "high-damage.png"))
+```
+
+## Probability density function (PDF)
+
+$$
+P[x|\mu,\sigma] = \frac{exp\left[-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2\right]}{\sigma\sqrt{2\pi}}
+$$
+* You do **not** need to know how to use this equation.
+
+In R:
+
+```{r}
+dnorm(x = 1, mean = 0, sd = 1)
+```
+
+```{r echo=FALSE}
+ggplot(tibble(x = seq(-5, 5, 0.1), y = dnorm(x)), aes(x, y)) +
+  geom_line() +
+  geom_vline(aes(xintercept = 1), color = "red", linetype = "dashed") +
+  geom_hline(aes(yintercept = dnorm(1)), color = "red", linetype = "dashed") +
+  labs(x = "value of x", y = "probability")
+```
+
+Any value is possible, but some are highly unlikely.
+
+## Cumulative Density Function (CDF)
+
+-CDF is the area under the normal curve.
+-So if we want to know P[x ≤ 1], we can use the CDF.
+
+-in R:
+
+```{r}
+pnorm(1, lower.tail = TRUE)
+```
+
+
+```{r echo=FALSE}
+cdfplot <- ggplot(tibble(x = seq(-5, 5, 0.1), y = pnorm(x)), aes(x, y)) +
+  geom_line() +
+  geom_vline(aes(xintercept = 1), color = "red", linetype = "dashed") +
+  geom_hline(aes(yintercept = pnorm(1)), color = "red", linetype = "dashed") +
+  labs(title = "CDF", x = "value of x", y = "cumulative probability")
+```
+
+Same as:
+
+```{r echo=FALSE}
+df <- tibble(x = seq(-5, 5, 0.1), y = dnorm(x))
+pdfplot <- ggplot(df, aes(x, y)) +
+  geom_line() +
+  labs(title = "PDF", x = "value of x", y = "probability") +
+  geom_ribbon(data = df %>% filter(x <= 1), aes(ymin = 0, ymax = y), alpha = 0.5)
+```
+
+```{r fig.width=7}
+pdfplot + cdfplot
+```
+
+
+84% of PDF is below x = 0.5
+
+## Standard Deviations
+
+
+```{r echo=FALSE, warning=FALSE}
+library(colorspace)
+pal <- sequential_hcl(n = 7, h = c(300, 200), c = c(60, NA, 0), l = c(25, 95), power = c(0.7, 1.3))
+
+ggplot(df, aes(x, y, ymin = 0, ymax = y)) +
+  geom_line() +
+  geom_segment(aes(y = dnorm(0.67), yend = dnorm(0.67), x = -0.67, xend = 0.67),
+               arrow = arrow(ends = "both", angle = "90"), color = pal[3]) +
+  geom_segment(aes(y = dnorm(1.96), yend = dnorm(1.96), x = -1.96, xend = 1.96),
+               arrow = arrow(ends = "both", angle = "90"), color = pal[2]) +
+  geom_segment(aes(y = dnorm(2.58), yend = dnorm(2.58), x = -2.58, xend = 2.58),
+               arrow = arrow(ends = "both", angle = "90"), color = pal[1]) +
+  annotate("text",
+           x = c(0, 0, 0),
+           y = dnorm(c(0.67, 1.96, 2.58)),
+           label = c(TeX("50% ($\\pm 0.67\\sigma$)"),
+                     TeX("95% ($\\pm 1.96\\sigma$)"),
+                     TeX("99% ($\\pm 2.58\\sigma$)")),
+                     vjust = c(3, -0.8, 1.2)) +
+  labs(x = "value of x", y = "probability")
+```
+
+## Example: Effects of herbicide on caterpillar growth
+
+Lee's slides
+
+
+
+
+```{r message=FALSE, warning=FALSE}
+cats <- 
+  read_csv(here("data", "HerbicideCaterpillars.csv")) %>%
+  janitor::clean_names()
+head(cats)
+```
+
+
+## 0. All have the same mass
+
+$$
+\operatorname{E}[x_i] = \beta_0
+$$
+$$
+x_i \sim Normal(E[x_i], \sigma)
+$$
+```{r}
+m0 <- glm(mass ~ 1, family = gaussian(link = "identity"), data = cats)
+coef(m0) #the mean mass
+```
+```{r}
+summary(m0)$dispersion #residual variance
+```
+
+```{r}
+sqrt(summary(m0)$dispersion) #residual standard deviation
+```
+
+```{r}
+sd(cats$mass)
+```
+
+## 1. Effect of herbicide
+
+Linear model with a dummy variable: H_i_ = 1 if herbicide, 0 if control
+
+$$
+\operatorname{E}[x_i] = \beta_0 + \beta_1H_i
+$$
+$$
+x_i \sim Normal(E[x_i], \sigma)
+$$
+```{r}
+m1 <- glm(mass ~ treat, family = gaussian(link = "identity"), data = cats)
+coef(m1)
+```
+
+
+```{r}
+sqrt(summary(m1)$dispersion) #residual standard deviation
+```
+
+## 1. Effect of herbicide plot
+
+```{r}
+cats %>%
+  group_by(treat) %>%
+  summarize(mean_mass = mean(mass)) %>% 
+  ggplot(aes(x = treat, y = mean_mass)) +
+  geom_point(shape = "square", size = 3) +
+  geom_line(aes(group = 1)) +
+  labs(x = "Treatment", y = "Mean Mass (g)")
+```
+
+## 2. Effect of host plant
+
+Linear model with a different dummy variable: P_i_ = 1 if *Plantago*, 0 if *Castileja*
+
+$$
+\operatorname{E}[x_i] = \beta_0 + \beta_1P_i
+$$
+$$
+x_i \sim Normal(E[x_i], \sigma)
+$$
+
+```{r}
+m2 <- glm(mass ~ host, family = gaussian(link = "identity"), data = cats)
+coef(m2)
+```
+
+
+```{r}
+sqrt(summary(m2)$dispersion) #residual standard deviation
+```
+
+## 2. Effect of host plant
+```{r}
+cats %>%
+  group_by(host) %>%
+  summarize(mean_mass = mean(mass)) %>% 
+  ggplot(aes(x = host, y = mean_mass)) +
+  geom_point(shape = "square", size = 3) +
+  geom_line(aes(group = 1)) +
+  labs(x = "Host Plant", y = "Mean Mass (g)")
+```
+
+## 3. Effects of both herbicide and host
+
+Two dummy variables:
+
+- H_i_ =  1 if herbicide, 0 if control
+- P_i_ = 1 if *Plantago*, 0 if *Castileja*
+
+$$
+\operatorname{E}[x_i] = \beta_0 + \beta_1H_i + \beta_2P_i
+$$
+
+$$
+x_i \sim Normal(E[x_i], \sigma)
+$$
+
+```{r}
+m3 <- glm(mass ~ host + treat, family = gaussian(link = "identity"), data = cats)
+coef(m3)
+```
+
+How to interpret?  Plug in betas and try dummy variables for different combinations of host and treatment
+
+```{r}
+sqrt(summary(m3)$dispersion) #residual standard deviation
+```
+
+## 3. Effect of host and treatment
+
+```{r}
+tibble(host = c("Castileja", "Castileja",            "Plantago", "Plantago"),
+       treat = c("Control",  "Herbicide",             "Control",  "Herbicide"),
+       mean_mass = c(coef(m3)[1], coef(m3)[1] + coef(m3)[3], coef(m3)[1] + coef(m3)[2], coef(m3)[1] + coef(m3)[2] + coef(m3)[3] )) %>% 
+  ggplot(aes(x = host, y = mean_mass, color = treat)) +
+  geom_point(shape = "square", size = 3) +
+  geom_line(aes(group = treat)) +
+  labs(x = "Host Plant", y = "Mean Mass (g)", color = "Treatment")
+```
+
+
+## 4. Interaction between host plant and treatment
+
+This allows the effects of herbicide to differ between *Plantago* and *Castileja* (or, conversely the effect of host plant to differ among levels of the herbicide treatment).
+
+$$
+\operatorname{E}[x_i] = \beta_0 + \beta_1H_i + \beta_2P_i + \beta_3H_iP_i
+$$
+
+```{r}
+m4 <- glm(mass ~ host + treat + host:treat, family = gaussian(link = "identity"), data = cats)
+coef(m4)
+```
+
+How to interpret?  Plug in betas and try dummy variables for different combinations of host and treatment
+
+```{r}
+sqrt(summary(m4)$dispersion) #residual standard deviation
+```
+
+
+## 4. Interaction
+
+```{r}
+tibble(host = c("Castileja", "Castileja",            "Plantago", "Plantago"),
+       treat = c("Control",  "Herbicide",             "Control",  "Herbicide"),
+       mean_mass = c(coef(m4)[1], coef(m4)[1] + coef(m4)[3], coef(m4)[1] + coef(m4)[2], coef(m4)[1] + coef(m4)[2] + coef(m4)[3] + coef(m4)[4] )) %>% 
+    ggplot(aes(x = host, y = mean_mass, color = treat)) +
+  geom_point(shape = "square", size = 3) +
+  geom_line(aes(group = treat)) +
+  labs(x = "Host Plant", y = "Mean Mass (g)", color = "Treatment")
+```
+
+## Model competition with AIC
+
+```{r}
+AIC(m0, m1, m2, m3, m4)
+```
+
+## Marginal Hypothesis Test
+
+- Starting with a "full" model, marginal hypothesis testing test the effects of one predictor over the range of other predictors.  
+- Not *quite* the same as sequentially testing nested models with LRT, but similar.
+- You don't have to worry about nestedness!
+
+```{r warning=FALSE}
+library(car)
+Anova(m4)
+```
+
+Things to know:
+
+1. These **are** the p-values you're looking for
+2. Do not trust the p-values from `anova()` (lowercase "a")!  It does sequential testing, which is not the same as marginal testing, and isn't appropriate in some cases.  `car::Anova()` (capital "A") will almost always do the correct thing.
+
+## Review of means paramaterization vs. effects paramaterization
+
+Using our coefficients and GLM equation, we figured out the expected mean mass of caterpillars in all 4 treatment x host plant combinations:
+
+$$
+\operatorname{E}[x_i] = \beta_0 + \beta_1H_i + \beta_2P_i + \beta_3H_iP_i
+$$
+```{r}
+coef(m4) %>% round(2)
+```
+
+Castilleja & control = 4.34
+Castilleja & herbicide = 3.76
+Plantago & control = 6.76
+Plantago & herbicide = 6.34 
+
+Can we get these an easier way?
+
+## Effects paramaterization 
+
+
+```{r}
+m_effects <- glm(mass ~ treat*host, family = gaussian, data = cats)
+summary(m_effects)
+```
+
+
+```{r}
+Anova(m_effects)
+```
+
+## Means paramaterization
+
+Not quite what we want in this case
+
+```{r}
+m_means <- glm(mass ~ -1 + treat*host, family = gaussian, data = cats)
+summary(m_means)
+```
+
+- `treatControl` = expected mean of Castilleja & control
+- `treatHerbicide` = expected mean of Castilleja & herbicide
+- `hostPlantago` = *difference* in means between `treatControl` and Plantago & control
+- `treatHerbicide:hostPlantago` = *difference* in means between `treatHerbicide` and Plantago & herbicide
+
+## Means paramterization
+
+Also, if you use means paramaterization (`~ -1 + treat*host`), then the `Anova()` results are not correct!
+
+```{r}
+m_effects$call
+Anova(m_effects)
+m_means$call
+Anova(m_means)
+```
+
+## Confidence intervals for factorial GLM
+
+Can we use `confint()`?
+
+```{r}
+confint(m_means)
+confint(m_effects)
+```
+... same problem
+
+## Confidence intervals for factorial GLM
+
+Can we use `predict()`?
+
+Using predict with `newdata=`
+
+```{r}
+mynewdata <- tibble(treat = c("Control", "Control", "Herbicide", "Herbicide"),
+                  host = c("Plantago", "Castilleja", "Plantago", "Castilleja"))
+mynewdata
+
+pred <- predict(m_effects, newdata = mynewdata, se.fit = TRUE)
+pred
+```
+
+`se.fit` is the standard error of the estimates.
+
+## What is standard error?
+
+Remember,
+
+$\sigma$ = population standard deviation
+$s$ = sample standard deviation
+$n$ = sample size
+
+SE = standard error = standard deviation of a **sample** mean = $\sigma/\sqrt{n}$
+
+Not going to go into why this is true mathematically, but think of taking repeated large samples vs. repeated small samples.  Small samples are going to vary more because you'll be less accurate at estimating the population mean.
+
+## Plotting error bars
+
+You *can* plot means ± SE, BUT these cannot be interpreted the same way ast 95% confidence intervals?
+
+Making data for plot:
+
+```{r}
+plotdata <-
+  mynewdata %>% 
+  add_column(means = pred$fit,
+             se = pred$se.fit,
+             se.lower = means - se,
+             se.upper = means + se)
+```
+
+
+```{r}
+ggplot(plotdata, aes(x = host, y = means, color = treat)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = se.lower, ymax = se.upper), width = 0.2) +
+  labs(title = "Predicted means ± SE", x = "Host Plant", y = "mean mass at diapause", color = "treatment")
+```
+
+## How to get 95% confidence intervals?
+
+Remember this plot?
+
+[plot]
+
+For a theoretical (population) normal distribution, 95% of values lie within $\pm 1.96\sigma$.
+
+For a *sample* from a normal distribution, 95% of values lie within $\pm 1.96\times \textrm{SE}_{\bar{Y}}$
+
+## 95% CI from predict()
+
+```{r}
+plotdata <- 
+  plotdata %>% 
+  mutate(ci = se * 1.96,
+         ci.lower = means - ci,
+         ci.upper = means + ci) 
+
+ggplot(plotdata, aes(x = host, y = means, color = treat)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), width = 0.2) +
+  labs(title = "Predicted means ± 95% CI", x = "Host Plant", y = "mean mass at diapause", color = "treatment")
+```
+
+

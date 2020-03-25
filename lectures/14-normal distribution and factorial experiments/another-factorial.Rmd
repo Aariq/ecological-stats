@@ -1,0 +1,399 @@
+---
+title: "Another Factorial Experiment"
+author: "Eric Scott"
+date: "3/12/2020"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+source(here("plot_theme.R"))
+library(latex2exp)
+library(patchwork)
+library(car)
+
+cats <- 
+  read_csv(here("data", "HerbicideCaterpillars.csv")) %>%
+  janitor::clean_names()
+```
+
+## Review of means paramaterization vs. effects paramaterization
+
+Using our coefficients and GLM equation, we figured out the expected mean mass of caterpillars in all 4 treatment x host plant combinations:
+
+$$
+\operatorname{E}[x_i] = \beta_0 + \beta_1H_i + \beta_2P_i + \beta_3H_iP_i
+$$
+```{r}
+m4 <- glm(mass ~ host + treat + host:treat, family = gaussian(link = "identity"), data = cats)
+coef(m4) %>% round(2)
+```
+
+Castilleja & control = 4.34
+Castilleja & herbicide = 3.76
+Plantago & control = 6.76
+Plantago & herbicide = 6.34 
+
+Can we get these an easier way?
+
+## Effects paramaterization 
+
+
+```{r}
+m_effects <- glm(mass ~ treat*host, family = gaussian, data = cats)
+summary(m_effects)
+```
+
+
+```{r}
+Anova(m_effects)
+```
+
+## Means paramaterization
+
+Not quite what we want in this case
+
+```{r}
+m_means <- glm(mass ~ -1 + treat*host, family = gaussian, data = cats)
+summary(m_means)
+```
+
+- `treatControl` = expected mean of Castilleja & control
+- `treatHerbicide` = expected mean of Castilleja & herbicide
+- `hostPlantago` = *difference* in means between `treatControl` and Plantago & control
+- `treatHerbicide:hostPlantago` = *difference* in means between `treatHerbicide` and Plantago & herbicide
+
+## Means paramterization
+
+Also, if you use means paramaterization (`~ -1 + treat*host`), then the `Anova()` results are not correct!
+
+```{r}
+m_effects$call
+Anova(m_effects)
+m_means$call
+Anova(m_means)
+```
+
+## Confidence intervals for factorial GLM
+
+Can we use `confint()`?
+
+```{r}
+confint(m_means)
+confint(m_effects)
+```
+
+... same problem
+
+## A hack to get CIs for each group
+
+Take out the intercept **and** main effects to only get means for the interactions.
+
+```{r}
+m_effects_b <- glm(mass ~ -1 + treat:host, family = gaussian, data= cats)
+coef(m_effects_b)
+confint(m_effects_b)
+```
+
+Remember, don't use `Anova()` or `AIC()` on this model! Wrong # of parameters!
+
+
+## Plotting error bars
+
+You *can* plot means ± SE, BUT these cannot be interpreted the same way ast 95% confidence intervals?
+
+Making data for plot from MLE means and confidence intervals.
+
+```{r}
+plotdata <-
+  tibble(treat = c("Control", "Herbicide", "Control", "Herbicide"),
+         host = c("Castilleja", "Castilleja", "Plantago", "Plantago"),
+         mass = coef(m_effects_b),
+         ci.lower = confint(m_effects_b)[ , 1],#first column
+         ci.upper = confint(m_effects_b)[ , 2]) #second column
+plotdata
+```
+
+## Plot
+
+```{r}
+ggplot(plotdata, aes(x = host, y = mass, color = treat)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), width = 0.2) +
+  labs(title = "Predicted means ± 95% CI", x = "Host Plant", y = "mean mass at diapause", color = "treatment")
+```
+
+95% confidence intervals don't overlap means.
+
+## Plotting data and means
+
+It's a good idea to plot raw data in addition to means ± some measure of uncertainty.  BUT, it can get ugly looking fast.
+
+Some tips:
+
+- For categorical predictors like this, "jitter" points to make them more visible
+- Use `alpha` to make raw data more transparent and fade into the background
+- Use different symbols for means and data points
+- Make symbols for means larger than data points
+- "dodge" means and errorbars to make overlap easier to see
+- Don't include raw data if it severely compromises readability of the plot
+
+## ggplot code
+
+Start with raw data
+
+```{r}
+p1 <-
+  ggplot(cats, aes(x = host, y = mass, color = treat)) +
+  geom_jitter(alpha = 0.3, position = position_jitterdodge())
+p1
+
+```
+
+## ggplot code
+
+Add errorbars first because I want them to be behind the points for means
+
+```{r}
+p2 <- p1 +
+  geom_errorbar(data = plotdata, 
+                aes(ymin = ci.lower, ymax = ci.upper,
+                    group = treat),
+                color = "black",
+                width = 0.2,
+                position = position_dodge(width = 0.75))
+p2
+```
+
+## ggplot code
+
+Add means with same dodge
+
+```{r}
+p3 <- p2 +
+  geom_point(data = plotdata,
+             aes(fill = treat),
+             size = 3,
+             shape = "square filled",
+             color = "black",
+             position = position_dodge(width = 0.75))
+p3
+```
+
+
+
+
+# Another factorial experiment
+
+## 1. Choose a probability distribution
+
+- Continuous
+- Approximately(?) bell shaped & symmetric
+- Probably close enough to Normal (AKA Gaussian)
+
+```{r include=FALSE}
+gh <- read_csv(here("data", "grasshopper_song.csv"))
+```
+
+```{r echo=FALSE, fig.width=7}
+ggplot(gh, aes(LocMax)) + geom_histogram(bins = 20) + labs(x = "local maximum frequency (Hz)")
+```
+
+## 2. Fit "full" model & marginal hypothesis test
+
+2 dummy variables:
+
+- O (origin) = 1 if roadside, 0 if non-roadside
+- T (treatment) = 1 if noisy, 0 if quiet
+
+$$
+E[x_i] = \beta_0 + \beta_1O + \beta_2T + \beta_3OT
+$$
+
+```{r}
+m1 <- glm(LocMax ~ Origin*Treatment, family = gaussian, data = gh)
+```
+
+## Check that residuals are ± normally distributed
+
+Not great, but not terrible
+
+```{r fig.width=7}
+resids <- fortify(m1) #adds .fitted and .resid columns to original data!
+ggplot(resids, aes(.resid)) + geom_histogram()
+```
+
+
+## Marginal Hypothesis test
+
+```{r}
+Anova(m1)
+```
+
+
+## Interaction plot
+
+- Use the "hack" to get means and confidence intervals and plot them.  
+
+- An interaction plot (not dodged jitter like before)
+
+```{r}
+m1b<-glm(LocMax ~ -1 + Origin:Treatment, family = gaussian, data = gh)
+coef(m1b)
+```
+
+```{r message=FALSE, warning=FALSE}
+plotdata <- tibble(Origin = c("non-roadside", "roadside", "non-roadside", "roadside"),
+                   Treatment = c("noisy", "noisy", "quiet", "quiet"),
+                   LocMax = coef(m1b),
+                   ci.lower = confint(m1b)[ , 1],
+                   ci.upper = confint(m1b)[ , 2])
+```
+
+```{r echo=FALSE, fig.width=7}
+ggplot(plotdata, aes(x = Treatment, y = LocMax, color = Origin)) +
+  geom_point() +
+  geom_line(aes(group = Origin)) +
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), width = 0.2)
+```
+
+If there is no interaction, these lines are parallel.  (Why? Work through the algerbra.)
+
+## Do smaller grashoppers make higher-pitched sounds?
+
+Test with GLM of song pitch vs. body size
+
+```{r echo=FALSE, fig.width=6}
+massplot <- ggplot(gh, aes(x = BodyMass, y = LocMax)) +
+  geom_point(alpha = 0.4)
+massplot
+```
+
+## Regression GLM
+
+$$
+E[x_i] = \beta_0 + \beta_1 \times BodyMass_i
+$$
+
+```{r}
+m2 <- glm(LocMax ~ BodyMass, family = gaussian, data = gh)
+Anova(m2)
+coef(m2)
+```
+
+## Plot the best fit line ± CI
+
+To plot a best fit line, we can use `geom_smooth()`
+
+NOTE: this only works well for simple models.  Use with caution.
+
+```{r fig.width=6}
+massplot +
+  geom_smooth(method = "glm",
+              level = 0.95,
+              method.args = list(family = gaussian))
+```
+
+Why are CIs wider at extremes?
+
+- Confidence in intercept AND slope means less confident about about extreme values.
+
+## Does habitat origin affect body size?
+
+2 dummy variables:
+
+- O (origin) = 1 if roadside, 0 if non-roadside
+- T (treatment) = 1 if noisy, 0 if quiet
+
+$$
+E[BodySize_i] = \beta_0 + \beta_1O + \beta_2T + \beta_3OT
+$$
+
+```{r}
+m3 <- glm(BodyMass ~ Origin*Treatment, family = gaussian, data = gh)
+Anova(m3)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+m3b <- glm(BodyMass ~ -1 + Origin:Treatment, family = gaussian, data= gh)
+# coef(m3b)
+plotdata <- tibble(Origin = c("non-roadside", "roadside", "non-roadside", "roadside"),
+                   Treatment = c("noisy", "noisy", "quiet", "quiet"),
+                   BodyMass = coef(m3b),
+                   ci.lower = confint(m3b)[ , 1],
+                   ci.upper = confint(m3b)[ , 2])
+```
+
+```{r echo=FALSE, fig.width=7}
+ggplot(plotdata, aes(x = Treatment, y = BodyMass, color = Origin)) +
+  geom_point() +
+  geom_line(aes(group = Origin)) +
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), width = 0.2)
+```
+
+No significant effect of origin or treatment on size
+
+## Interaction of body size and noise
+
+2 dummy variables:
+
+- O (Origin) =  1 if roadside, 0 if non-roadside
+- T (treatment) = 1 if noisy, 0 if quiet
+
+$$
+E[x_i] = \beta_0 + \beta_1O + \beta_2T + \beta_3BodyMass_i + \beta_4OT + \beta_5\times O\times BodyMass_i +\beta_6\times T\times BodyMass_i + \beta7 \times O \times T \times BodyMass_i
+$$
+
+```{r}
+m4 <- glm(LocMax ~ Origin*Treatment*BodyMass, family = gaussian, data = gh)
+```
+
+## Results
+
+```{r}
+m4$call
+Anova(m4)
+```
+
+No significant interactions (*whew*).  That means effects of mass, origin, and treatment are simply additive.
+
+## Plotting results
+
+`geom_smooth()` won't work here because it's going to plot lines and confidence intervals for the full model.  We have to build our own plot.  Here's one way:
+
+Additive model:
+
+```{r}
+mred <- glm(LocMax ~ Origin + Treatment + BodyMass, family = gaussian, data = gh)
+```
+
+Get fitted values and standard error as a data frame with `augment()` from the `broom` package
+
+```{r}
+library(broom)
+pred <- augment(mred)
+head(pred %>% select(LocMax, Origin, Treatment, BodyMass, .fitted, .se.fit))
+```
+
+```{r fig.width=8}
+ggplot(pred, aes(x = BodyMass, y = .fitted, color = Origin)) +
+  geom_line(aes(group = Origin)) +
+  
+  geom_ribbon(aes(ymin = .fitted - .se.fit * 1.96,
+                  ymax = .fitted + .se.fit * 1.96,
+                  group = Origin),
+              alpha = 0.2,
+              color = NA) +
+  
+  facet_wrap(~Treatment) + 
+  labs(y = "LocMax")
+```
+
+

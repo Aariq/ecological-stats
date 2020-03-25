@@ -1,0 +1,102 @@
+---
+title: "Grasshopper Analysis"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(car)
+library(here)
+```
+
+A simple factorial treatment of the grashopper song data.
+
+# Read in data
+
+```{r message=FALSE, warning=FALSE}
+gh <- read_csv(here("data", "grasshopper_song.csv"))
+gh
+```
+
+# Fit "full" model:
+
+```{r}
+m1 <- glm(LocMax ~ Origin + Treatment + Origin:Treatment, 
+          family = gaussian, data = gh)
+
+m1 <- glm(LocMax ~ Origin * Treatment, 
+          family = gaussian, data = gh)
+```
+
+# Marginal hypothesis test:
+
+```{r}
+Anova(m1)
+```
+
+Significant (additive) effects of origin and treatment.  No significant interaction.
+
+```{r}
+coef(m1)
+```
+
+intercept: origin = non-roadside & treatment = noisy
+
+So, Origin = 0 when "non-roadside" and 1 when "roadside"
+
+Treatment = 0 when "noisy" and 1 when "quiet
+
+Because of alphabetical order.  E.g.:
+
+```{r}
+levels(as.factor(gh$Origin))
+```
+
+So, you could plug this into the equation:
+
+```{r eval=FALSE, include=FALSE}
+library(equatiomatic)
+extract_eq(m1, use_coefs = TRUE)
+```
+
+$$
+
+\text{LocMax} = 7168.84 + 437.85(\text{Origin}) - 192.88(\text{Treatment}) - 115.48(\text{Origin} \times \text{Treatment})
+
+$$
+
+# An easier way...
+
+Or we could use our glm "hack" to get means and confidence intervals for each combination of origin and treatment:
+
+```{r}
+m1b <- glm(LocMax ~ -1 + Origin:Treatment, 
+          family = gaussian, data = gh)
+coef(m1b)
+confint(m1b)
+```
+
+# Interaction plot
+
+```{r}
+plotdata <- tibble(Origin = c("non-roadside", "roadside", "non-roadside", "roadside"),
+                   Treatment = c("noisy", "noisy", "quiet", "quiet"),
+                   LocMax = coef(m1b),
+                   ci.lower = confint(m1b)[ , 1], #just the first column from confint()
+                   ci.upper = confint(m1b)[ , 2]) #second column
+plotdata
+```
+
+```{r}
+ggplot(plotdata, aes(x = Treatment, y = LocMax, color = Origin)) +
+  geom_point() +
+  geom_line(aes(group = Origin)) +
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), width = 0.2) +
+  labs(x = "Rearing Environment",
+       y = "Song Frequency (Hz)",
+       color = "Population Origin",
+       caption = "Error bars represent 95% confidence intervals")
+
+```
+
+

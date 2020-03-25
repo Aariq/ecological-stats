@@ -1,0 +1,137 @@
+---
+title: "Normal Distribution and Factorial Experiments"
+author: "Eric Scott"
+date: "2/27/2020"
+output: powerpoint_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## New Distribution: normal
+
+- Symmetrical
+- Continuous
+- Mean ($\mu$) and variance ($\sigma^2$) are not related
+- unbounded (-inf to inf)
+- application: data with continous variation and approx. symmetrical distribution
+
+## Why so common?
+
+Few ecological variables are strictly Normal, but many are approximately Normal.
+
+1. The sum or average of a large number of samples from **any** distribution will be normally distributed, even if the starting distribution is extremely skewed (not symmetrical)
+
+```{r}
+#plot (and code?) of plotting means from poisson distribution as histogram
+```
+
+Many variables are controlled by multiple underlyling factors.  
+Take height as an example: many genes control it.  Each gene is like a sample from a distribution.  Even if individual genes are skewed in terms of their individual contribution to height, the mean (or sum) of them all (plus environmental factors) is what results in an individuals height.
+
+2. The **product** of a large number of samples from any positive distribution will be **log-normally** distributed.
+
+Thus, if the random variable X is log-normally distributed, then Y=log(X) has normal distirbuttion, A random variable which is log-normally distributed takes only positive real values.
+Related to previous slide (product not sum- growth of plants), do not talk about log transformations-
+
+Skewed  distributions are particularly common when mean values are 
+Low variances large and values cannot be negative as is the case, for example, with species abundance.
+
+
+## R functions for Normal PDF, CDF, and random numbers
+
+```{r}
+
+```
+
+
+## GLMs for normally distributed data
+
+Normal = Gaussian(link = "identity")
+log-normal = Gaussian(link = "log")
+
+A GLM with a gaussian family and identity link is just a linear regression.
+GLMs are actually estensions of linear regressions for non-normal data.  We've arrived at them backwards.  
+
+```{r}
+#Replace dataset later.  INtroduce something earlier on
+m<-glm(Girth ~ Height, family = gaussian(link = "identity"), data = trees)
+
+#equivalent to standard linear regression:
+m2 <-lm(Girth ~ Height, data = trees)
+```
+
+
+## Factorial experiment
+
+Introduce factorial experiment design. Ideally one continous predictor and one 2-level factor predictor
+
+**DRAW** expected possible outcomes on board. (flat lines, slope, two intercepts, two slopes)
+
+
+## GLMs
+
+Write equations for lines for the possible scenarios on board.  Explain dummy variables again.
+
+Write the GLM (students can do intercept only and single trend on their own)
+
+Plot fitted lines for each. (maybe introduce `broom`?)
+
+
+## Factorial GLMs
+
+How do we do GLMs for these other scenarios?
+
+Use dummy variables.
+
+Break to write interaction equations on board and explain what `+`, `:`, and `*` in GLM formulas do mathematically.  Show how to fit factorial GLM with and without interaction.
+
+Plot results
+
+## Model competition
+
+1. AIC
+    - compare all and pick model with lowest AIC
+    
+2. Sequential, nested LRT
+    - Start with "full" model
+    - Remove interaction, do LRT.  If significant stop and keep full model.  Otherwise:
+    - Remove a factor, do LRT. If significant, try removing other factor.  If both significant, stop: otherwise
+    - Remove the other factor (null model), do LRT. If significant, stop.  Otherwise the null model wins and there is no significant effect of either factor or their interaction.
+    
+Shortcut: `car::Anova()`
+
+- marginal hypothesis testing
+- kind of related to ANalysis Of Variance, but doesnt' actually do ANOVA test
+- Confusingly does different things in different situations
+- Better (smarter) than base R lower-case `anova()`.  Always use `Anova()`!
+
+
+## What about two factors?
+
+What if you have two factors and not one continous predictor and one factor?
+
+It works the same way!  
+
+If only ne factor is significant:
+
+```{r}
+#an interaction plot with two lines ontop of eachother
+```
+
+If both factors are significant, but no-interaction
+
+```{r}
+#two (or 3) parallel lines
+```
+
+If there is an interaction:
+
+```{r}
+#two lines with different slopes
+```
+
+When you add more predictors, the math and model competition is the same, but becomes more difficult to interpret and visualize. (e.g. three-way interactions are essentially impossible to wrap your brain around).  Solution: Keep experiments simple when possible! When not possible, consider mixed effects models or multivariate methods (coming soon!).
+
+
