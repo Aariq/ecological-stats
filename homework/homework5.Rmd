@@ -124,11 +124,10 @@ coef(m2)
 plogis(coef(m2)[3])
 ```
   
-  c. Fit a negative binomial GLM with latitude as a predictor and survey effort as an offset.  Report the AIC and theta, the dispersion parameter.
+  c. Fit a zero-inflated negative binomial GLM with latitude as a predictor for the count term and survey effort as an offset (like part b, but with a negative binomial distribution).  Report the AIC and the estimate for theta.
   
 ```{r}
-library(MASS)
-m3 <- glm.nb(count ~ Latitude + offset(log(hours)), data = woody)
+m3 <- zeroinfl(count ~ Latitude|1, offset = log(hours), dist = "negbin", data = woody)
 AIC(m3)
 summary(m3)
 ```
@@ -139,12 +138,12 @@ summary(m3)
 AIC(m1, m2, m3)
 ```
   
-  e. What ecological process might result in the winning model?
+  e. What ecological process(es) might produce the distribution described by the winning model?
   
   f. Starting with the winning model from part d, use a likelihood ratio test to test for a trend with latitude. Write a brief summary statement of your results, including the direction of effect of latitude (increasing or decreasing with latitude?).
   
 ```{r}
-m0 <- glm.nb(count ~ 1 + offset(log(hours)), data = woody)
+m0 <- zeroinfl(count ~ 1, offset = log(hours), dist = "negbin", data = woody)
 lmtest::lrtest(m0, m3)
 ```
   
