@@ -1,0 +1,105 @@
+---
+title: "Interpreting Zero-inflated Models"
+author: "Eric Scott"
+date: "2/17/2020"
+output:
+  powerpoint_presentation:
+    reference_doc: template.pptx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(error = TRUE)
+```
+```{r include=FALSE}
+library(tidyverse)
+library(here)
+source(here("plot_theme.R"))
+library(pscl)
+```
+
+
+## Bluebirds
+
+Last time we fit several models to potentially explain the relationship between bluebird counts and latitude in the Christmas Bird Count data.
+
+1. Simple Poisson GLM
+2. Zero-inflated Poisson GLM (with latitude affecting counts, zeroes, or both)
+3. Negative binomial GLM
+4. Zero-inflated negative binomial GLM (with latitude affecting counts, zeroes, or both)
+
+## AIC competition
+The winner was...
+
+ZiNB with latitude affecting both counts and zeroes
+
+```
+zeroinfl(formula = count ~ Latitude | Latitude, offset = log(hours), dist = "negbin", data = birds2)
+```
+
+But a close second (dAIC = 1.1) was a simpler model, with latitude only affecting zeroes
+
+```
+zeroinfl(formula = count ~ 1 | Latitude, offset = log(hours), dist = "negbin", data = birds2)
+```
+
+Here's an example where you might use the fact that dAIC < 2 to justify keeping both models and interpreting both.  Let's start with the simple one.
+
+## Interpreting ZiNB GLM
+
+```{r include=FALSE}
+# bluebirds.csv on canvas
+birds2 <- read_csv(here("data", "bluebirds.csv"))
+# head(birds2)
+m_zinb2 <- zeroinfl(count ~ 1|Latitude, offset = log(hours), dist = "negbin", data = birds2)
+```
+```{r}
+summary(m_zinb2)
+```
+
+- Mean # bluebirds per hour given that they are at a site = `exp(-0.37127)` = `r exp(-0.37127)`
+- Probability a site is a "true" zero (i.e., bluebirds have migrated away from the site and you'll never find them there) = `plogis(-126.8252 + 2.8781 * Latitude)`
+  - at 41º Latitude, p(migration) = `plogis(-126.8252 + 2.8781 * 41` = 0.0001
+  - at 47º, p(migration) = 0.9998
+
+## Back to the question
+
+Remember, our question is what is the probability that we find zero birds at a site because they're truly not there (and not just because we happend to not see any because of Poisson sampling).
+
+We now know that this probability varies with latitude.  Let's plot our results.
+
+**1. Create column of 1's and 0's**
+
+```{r}
+birds2 <- birds2 %>% 
+  mutate(zero = as.numeric(count == 0)) 
+```
+
+**2. Plot presence/absence**
+
+```{r}
+migration_plot <- 
+  ggplot(birds2, aes(x = Latitude, y = zero)) +
+  geom_point(alpha = 0.5) + #make points slightly transparent to see overplotting better.
+  labs(y = "probability of true zero")
+```
+
+**3. Create fitted data with our equation**
+
+Remember, `y = plogis(-126.8252 + 2.8781 * Latitude)`
+
+```{r}
+pred_data <-
+  tibble(
+  Latitude = seq(min(birds2$Latitude), max(birds2$Latitude), 0.05), # x-values
+  prob = plogis(-126.8252 + 2.8781 * Latitude)
+  )
+```
+
+**4. Add a line to the plot**
+
+```{r}
+migration_plot + geom_line(aes(y = prob), data = pred_data, color = "blue")
+```
+
+Interpretation: At low latitudes, the zeroes (confusingly the top of the plot) are likely to be due to Poisson sampling.  At high latitudes, the zeroes are likely due to true absence of bluebirds from those sites.
+
