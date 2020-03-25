@@ -60,10 +60,11 @@ exp(coef(m1)) # .... back-transformed
 ## Expected distribution if simple Poisson
 
 ```{r}
+#plot as proportion rather than count with stat="count" and y = after_stat(prop)
+#after_stat() access variables calculated by the stat specified in the geom.  I.e. stat = "count" produces both a count variable and a prop variable behind the scenes before plotting.
 tibble(x = rpois(10000, exp(coef(m1)))) %>% #generate random numbers
   ggplot() +
-  #plot as proportion rather than count with stat="count" and y = ..prop..
-  geom_bar(stat = "count", aes(x, y= ..prop.., group = 1),
+  geom_bar(stat = "count", aes(x, y = after_stat(prop), group = 1),
            fill = "grey", color = "black") +
   theme_bw() +
   coord_cartesian(xlim = c(0, 80)) +
